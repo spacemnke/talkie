@@ -94,17 +94,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
 
     @objc func showCardFile() {
         if cardWindow == nil {
-            let host = NSHostingView(rootView: CardFileView(model: cards))
-            let window = NSWindow(
-                contentRect: NSRect(origin: .zero, size: host.fittingSize),
-                styleMask: [.titled, .closable, .miniaturizable],
-                backing: .buffered,
-                defer: false
-            )
-            window.title = "Card File"
-            window.contentView = host
-            window.isReleasedWhenClosed = false
-            window.backgroundColor = NSColor(Palette.shell)
+            let window = makeDeviceWindow(title: "Card File", content: CardFileView(model: cards))
             place(window, beside: boardWindow)
             cardWindow = window
         }

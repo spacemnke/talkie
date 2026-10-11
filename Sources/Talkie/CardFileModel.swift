@@ -5,12 +5,19 @@ import TalkieCore
 
 enum CardSpace {
     static let name = "cardfile"
-    static let card = CGSize(width: 196, height: 110)
+    /// A line card at full size, as it sits at the front of the Rolodex.
+    static let card = CGSize(width: 288, height: 153)
+    /// Smaller in the OUT tray, and a little smaller going into the slot so it fits.
+    static let trayScale: CGFloat = 0.646
+    static let feedScale: CGFloat = 0.9
 }
 
 /// Places in the card file window that cards move between, in its coordinates.
 enum CardSpot: Hashable {
-    case feed, tray, drum
+    /// The slot panel you drop a card on, and the slot itself.
+    case feed, slot
+    /// Where the card sits in the OUT tray and at the front of the Rolodex.
+    case trayCard, front
 }
 
 struct SpotKey: PreferenceKey {
@@ -40,6 +47,7 @@ final class CardFileModel {
         var source: Source
         /// Top-left corner, in the window's coordinates.
         var origin: CGPoint
+        var scale: CGFloat
         var lifted = true
         /// Inside the punch: everything below the slot is hidden.
         var inSlot = false
@@ -81,15 +89,13 @@ final class CardFileModel {
         boardModel.board.jack(of: card.id)
     }
 
-    var hint: String { file.hint(on: boardModel.board) }
-
     var canEject: Bool {
         guard let card = file.frontCard else { return false }
         return !busy && jack(of: card) != nil
     }
 
-    /// Where the bottom of the slot is: a card going into the punch disappears below this line.
-    var slotLine: CGFloat { spots[.feed]?.maxY ?? 0 }
+    /// The middle of the slot: a card going into the punch disappears below this line.
+    var slotLine: CGFloat { spots[.slot]?.midY ?? 0 }
 
     // MARK: The LCD
 
@@ -196,7 +202,8 @@ final class CardFileModel {
 
     /// A scroll over the Rolodex turns it, one card at a time.
     func wheel(at p: CGPoint, deltaY: CGFloat) {
-        guard let drum = spots[.drum], drum.contains(p), abs(deltaY) >= 1 else { return }
+        // The front card, plus the card tops peeking up behind it.
+        guard let front = spots[.front], front.insetBy(dx: -8, dy: -48).offsetBy(dx: 0, dy: -24).contains(p), abs(deltaY) >= 1 else { return }
         let t = now
         guard t - lastWheel > 0.12 else { return }
         lastWheel = t
@@ -219,28 +226,24 @@ final class CardFileModel {
 
     // MARK: Dragging a card
 
-    private func home(for source: Source) -> CGPoint {
-        let c = CardSpace.card
+    private func home(for source: Source) -> (origin: CGPoint, scale: CGFloat) {
         switch source {
-        case .tray:
-            let r = spots[.tray] ?? .zero
-            return CGPoint(x: r.midX - c.width / 2, y: r.midY - c.height / 2)
-        case .file:
-            let r = spots[.drum] ?? .zero
-            return CGPoint(x: r.midX - c.width / 2, y: r.maxY - c.height)
+        case .tray: return ((spots[.trayCard] ?? .zero).origin, CardSpace.trayScale)
+        case .file: return ((spots[.front] ?? .zero).origin, 1)
         }
     }
 
+    /// Hovering just above the slot, sized to go in.
     private var feedOrigin: CGPoint {
-        let c = CardSpace.card
-        let r = spots[.feed] ?? .zero
-        return CGPoint(x: r.midX - c.width / 2, y: r.maxY - c.height - 4)
+        let w = CardSpace.card.width * CardSpace.feedScale, h = CardSpace.card.height * CardSpace.feedScale
+        let r = spots[.slot] ?? .zero
+        return CGPoint(x: r.midX - w / 2, y: r.midY - h - 1)
     }
 
-    private func overFeed(_ origin: CGPoint) -> Bool {
+    private func overFeed(_ g: Ghost) -> Bool {
         guard let r = spots[.feed] else { return false }
-        let c = CGPoint(x: origin.x + CardSpace.card.width / 2, y: origin.y + CardSpace.card.height / 2)
-        return c.x > r.minX - 30 && c.x < r.maxX + 30 && c.y > r.minY - 40 && c.y < r.maxY + 30
+        let c = CGPoint(x: g.origin.x + CardSpace.card.width * g.scale / 2, y: g.origin.y + CardSpace.card.height * g.scale / 2)
+        return r.insetBy(dx: -40, dy: -50).contains(c)
     }
 
     func cardDragChanged(_ card: LineCard, from source: Source, location: CGPoint, start: CGPoint) {
@@ -252,16 +255,16 @@ final class CardFileModel {
                 sound.play(.flip)
                 return
             }
-            let origin = home(for: source)
-            drag = Drag(offset: CGVector(dx: origin.x - start.x, dy: origin.y - start.y), start: start)
-            ghost = Ghost(card: card, source: source, origin: origin)
+            let home = home(for: source)
+            drag = Drag(offset: CGVector(dx: home.origin.x - start.x, dy: home.origin.y - start.y), start: start)
+            ghost = Ghost(card: card, source: source, origin: home.origin, scale: home.scale)
         }
         guard var d = drag, !d.ignored, var g = ghost else { return }
         if !d.moved && location.distance(to: d.start) > 4 { d.moved = true }
         drag = d
         g.origin = CGPoint(x: location.x + d.offset.dx, y: location.y + d.offset.dy)
         ghost = g
-        let hot = overFeed(g.origin)
+        let hot = overFeed(g)
         if hot != feedHot { feedHot = hot }
     }
 
@@ -271,7 +274,7 @@ final class CardFileModel {
         feedHot = false
         guard !d.ignored, let g = ghost else { return }
         // Dropping it on the feed punches it. A plain click on the card in the OUT tray does too.
-        if overFeed(g.origin) || (!d.moved && g.source == .tray) {
+        if overFeed(g) || (!d.moved && g.source == .tray) {
             busy = true
             Task { await punch(g) }
         } else {
@@ -284,14 +287,17 @@ final class CardFileModel {
         guard !busy, ghost == nil else { return }
         guard let card = source == .tray ? file.tray : file.frontCard else { return }
         busy = true
-        let g = Ghost(card: card, source: source, origin: home(for: source))
+        let home = home(for: source)
+        let g = Ghost(card: card, source: source, origin: home.origin, scale: home.scale)
         ghost = g
         Task { await punch(g) }
     }
 
     private func sendHome(_ g: Ghost) async {
+        let home = home(for: g.source)
         animate(.easeOut(duration: 0.25)) {
-            ghost?.origin = home(for: g.source)
+            ghost?.origin = home.origin
+            ghost?.scale = home.scale
             ghost?.lifted = false
         }
         await pause(0.26)
@@ -306,13 +312,14 @@ final class CardFileModel {
         let above = feedOrigin
         animate(.easeOut(duration: 0.18)) {
             ghost?.origin = above
+            ghost?.scale = CardSpace.feedScale
             ghost?.lifted = false
         }
         await pause(0.2)
 
         ghost?.inSlot = true
         animate(.timingCurve(0.5, 0, 0.8, 0.4, duration: 0.55)) {
-            ghost?.origin = CGPoint(x: above.x, y: above.y + CardSpace.card.height + 12)
+            ghost?.origin = CGPoint(x: above.x, y: above.y + CardSpace.card.height * CardSpace.feedScale + 12)
         }
         sound.play(.cardIn)
         lamps = Lamps(read: .blink)
@@ -351,8 +358,10 @@ final class CardFileModel {
             sound.play(.accept)
             boardModel.flashArrival(jack)
             // File the card: it flies into the Rolodex.
+            let front = home(for: .file)
             animate(.timingCurve(0.3, 0.7, 0.3, 1, duration: 0.45)) {
-                ghost?.origin = home(for: .file)
+                ghost?.origin = front.origin
+                ghost?.scale = front.scale
             }
             await pause(0.46)
             ghost = nil
