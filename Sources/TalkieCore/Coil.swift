@@ -15,9 +15,12 @@ public enum Coil {
         )
     }
 
-    public static func points(from start: CGPoint, to anchor: CGPoint, coils: Int = 26, radius: CGFloat = 5.5) -> [CGPoint] {
+    /// `rising` is for a cord that leaves the top of the mic: it heads up first instead of sagging below.
+    public static func points(from start: CGPoint, to anchor: CGPoint, coils: Int = 26, radius: CGFloat = 5.5, rising: Bool = false) -> [CGPoint] {
         let d = start.distance(to: anchor)
-        let c1 = CGPoint(x: start.x, y: start.y + 30 + d * 0.25)
+        let c1 = rising
+            ? CGPoint(x: start.x, y: start.y - 20 - d * 0.2)
+            : CGPoint(x: start.x, y: start.y + 30 + d * 0.25)
         let c2 = CGPoint(x: anchor.x, y: anchor.y + 20 + d * 0.3)
 
         // Sample the curve and measure it, so the loops are spaced by length, not by curve parameter.

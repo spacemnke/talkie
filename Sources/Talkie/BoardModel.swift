@@ -28,7 +28,7 @@ final class BoardModel {
     private(set) var mic = FloatingMic()
     var overlayBounds: CGRect = .zero
     var anchor: CGPoint = .zero
-    let micSize = CGSize(width: 110, height: 110 * 275 / 160)
+    let micSize = CGSize(width: 110, height: 110 * MicArt.viewBox.height / MicArt.viewBox.width)
 
     private(set) var volume: Double = 0.7
     private(set) var soundOn = true
@@ -340,9 +340,9 @@ final class BoardModel {
         guard frame.width > 0 else { return nil }
         let x = MicArt.viewBox.minX + (p.x - frame.minX) / frame.width * MicArt.viewBox.width
         let y = MicArt.viewBox.minY + (p.y - frame.minY) / frame.height * MicArt.viewBox.height
-        guard x >= 146 else { return nil }
-        if (48...98).contains(y) { return .effect }
-        if (100...142).contains(y) { return .buzz }
+        let point = CGPoint(x: x, y: y)
+        if MicArt.effectKey.contains(point) { return .effect }
+        if MicArt.buzzKey.contains(point) { return .buzz }
         return nil
     }
 

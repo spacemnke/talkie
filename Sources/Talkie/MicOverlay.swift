@@ -165,7 +165,7 @@ struct FloatingMicView: View {
             y: mic.position.y + ex * sin(radians) + ey * cos(radians)
         )
         var coil = Path()
-        coil.addLines(Coil.points(from: exit, to: snap.anchor, radius: 5.5 * min(1, mic.scale * 1.2)))
+        coil.addLines(Coil.points(from: exit, to: snap.anchor, radius: 5.5 * min(1, mic.scale * 1.2), rising: true))
         ctx.stroke(coil, with: .color(Palette.ink), style: StrokeStyle(lineWidth: 5, lineCap: .round, lineJoin: .round))
         ctx.stroke(coil, with: .color(Palette.lampOff), style: StrokeStyle(lineWidth: 2.6, lineCap: .round, lineJoin: .round))
 
@@ -186,14 +186,26 @@ struct FloatingMicView: View {
         let tagLamp: MicArt.TagLamp = flags.rx ? .rx : (flags.tx ? .tx : (board.openJacks.isEmpty ? .blink : .on))
         let state = MicArt.State(
             squeezed: board.talking,
-            effectSlot: board.effect.slot,
-            level: Int((snap.micLevel * 3).rounded()),
-            tag: board.liveNames.joined(separator: " + "),
+            effectIndex: board.effect.rawValue,
+            level: Int((snap.micLevel * 5).rounded()),
+            tag: board.liveNames.joined(separator: "+"),
+            tagLabel: tagLabel(board),
             tagLamp: tagLamp,
             blinkPhase: blinkPhase
         )
         m.drawLayer { layer in
             MicArt.draw(&layer, state)
         }
+    }
+
+    /// TX and RX can both be on: talking over each other is allowed.
+    private static func tagLabel(_ board: Switchboard) -> String {
+        let flags = board.flags
+        if flags.tx && flags.rx { return "TX·RX" }
+        if flags.tx { return "TX" }
+        if flags.rx { return "RX" }
+        let cords = CordID.allCases.filter { board.patches[$0] != nil }.map(\.label)
+        if !cords.isEmpty { return cords.joined(separator: "+") }
+        return board.incoming.isEmpty ? "" : "IN"
     }
 }

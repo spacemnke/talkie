@@ -1,29 +1,37 @@
 import AppKit
 
-/// The menu bar icon: a jack. Orange when a line is open, blinking while one opens, a dash on do not disturb.
+/// The menu bar icon: a jack. Idle and do-not-disturb are template images, so macOS tints them for
+/// light and dark menu bars; a live line is signal orange; connecting blinks the idle jack.
 enum StatusIcon {
     enum Look: Equatable { case idle, live, dim, doNotDisturb }
 
     static func image(_ look: Look) -> NSImage {
-        let image = NSImage(size: NSSize(width: 18, height: 18), flipped: false) { rect in
-            let ring = NSBezierPath(ovalIn: rect.insetBy(dx: 2, dy: 2))
-            ring.lineWidth = 2
+        let image = NSImage(size: NSSize(width: 18, height: 18), flipped: true) { _ in
+            let ink = look == .live ? NSColor(srgbRed: 0x1B / 255, green: 0x1B / 255, blue: 0x1B / 255, alpha: 1) : NSColor.black
+            let alpha: CGFloat = look == .dim ? 0.35 : 1
+            let ring = NSBezierPath(ovalIn: NSRect(x: 9 - 7.5, y: 9 - 7.5, width: 15, height: 15))
+            ring.lineWidth = 1.8
             if look == .live {
                 Palette.orangeNS.setFill()
-                ring.fill()
+                NSBezierPath(ovalIn: NSRect(x: 1, y: 1, width: 16, height: 16)).fill()
             }
-            // labelColor resolves when drawn, so it suits light and dark menu bars.
-            NSColor.labelColor.setStroke()
+            ink.withAlphaComponent(alpha).setStroke()
             ring.stroke()
-            NSColor.labelColor.setFill()
+            ink.withAlphaComponent(alpha).setFill()
             if look == .doNotDisturb {
-                NSBezierPath(rect: NSRect(x: 5.5, y: 8, width: 7, height: 2)).fill()
+                let dash = NSBezierPath()
+                dash.move(to: NSPoint(x: 6, y: 9))
+                dash.line(to: NSPoint(x: 12, y: 9))
+                dash.lineWidth = 2
+                dash.lineCapStyle = .round
+                ink.setStroke()
+                dash.stroke()
             } else {
-                NSBezierPath(ovalIn: NSRect(x: 6, y: 6, width: 6, height: 6)).fill()
+                NSBezierPath(ovalIn: NSRect(x: 6.5, y: 6.5, width: 5, height: 5)).fill()
             }
             return true
         }
-        image.isTemplate = false
+        image.isTemplate = look != .live
         image.accessibilityDescription = "Talkie"
         return image
     }

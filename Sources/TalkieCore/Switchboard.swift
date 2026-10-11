@@ -365,7 +365,7 @@ public struct Switchboard: Equatable, Sendable {
         let corded = CordID.allCases.compactMap { c in patches[c].map { (cord: c, patch: $0) } }
         let name: (Int) -> String = { self.friend($0)?.name ?? "?" }
         let names = corded.map { name($0.patch.jack) } + incoming.keys.sorted().map(name)
-        let big = names.isEmpty ? "IDLE" : names.joined(separator: "+")
+        let big = names.isEmpty ? "READY TO PATCH" : names.joined(separator: " + ")
         let open = openJacks
         let rx = open.filter { friendTalking.contains($0) }.map(name)
         let held = corded.filter { $0.patch.status == .waitingDND }.map { name($0.patch.jack) }
@@ -387,13 +387,14 @@ public struct Switchboard: Equatable, Sendable {
                 sub = "INCOMING · OPEN · \(Self.clock(now - (incoming[open[0]] ?? now)))"
             }
         } else if open.count > 1 {
-            sub = "\(open.count) LINES · CONFERENCE"
+            let bothCords = corded.filter { $0.patch.status == .open }.count == 2
+            sub = bothCords ? "TWO CORDS · THREE PEOPLE" : "\(open.count + 1) PEOPLE ON THE LINE"
         } else if !held.isEmpty {
             sub = held.joined(separator: " + ") + " · DO NOT DISTURB · PATCH WAITS"
         } else if let first = corded.first {
             sub = name(first.patch.jack) + " IS AWAY"
         } else {
-            sub = "DRAG A PLUG INTO A JACK"
+            sub = "PLUG INTO A FRIEND"
         }
         return Readout(big: big, sub: sub)
     }

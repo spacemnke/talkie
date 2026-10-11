@@ -25,7 +25,7 @@ final class SwitchboardTests: XCTestCase {
         openLine(&b)
         XCTAssertEqual(b.unpatch(.a, now: 2), [.unplugged, .micStow])
         XCTAssertFalse(b.isLive)
-        XCTAssertEqual(b.readout(now: 2).big, "IDLE")
+        XCTAssertEqual(b.readout(now: 2), Readout(big: "READY TO PATCH", sub: "PLUG INTO A FRIEND"))
     }
 
     func testDoNotDisturbHoldsThePatchUntilItsSwitchedOff() {
@@ -84,7 +84,7 @@ final class SwitchboardTests: XCTestCase {
         var b = Switchboard()
         openLine(&b, cord: .a, jack: 0)
         openLine(&b, cord: .b, jack: 1, at: 1)
-        XCTAssertEqual(b.readout(now: 3), Readout(big: "MAYA+OTTO", sub: "2 LINES · CONFERENCE"))
+        XCTAssertEqual(b.readout(now: 3), Readout(big: "MAYA + OTTO", sub: "TWO CORDS · THREE PEOPLE"))
         XCTAssertEqual(b.liveNames, ["MAYA", "OTTO"])
     }
 
@@ -172,6 +172,6 @@ final class SwitchboardTests: XCTestCase {
         b.say("HELLO", "WORLD", now: 0, for: 1)
         XCTAssertEqual(b.readout(now: 0.5).big, "HELLO")
         _ = b.tick(now: 1.1)
-        XCTAssertEqual(b.readout(now: 1.1).big, "IDLE")
+        XCTAssertEqual(b.readout(now: 1.1).big, "READY TO PATCH")
     }
 }

@@ -32,6 +32,10 @@ final class PhysicsTests: XCTestCase {
         XCTAssertGreaterThan(points.count, 140)
         XCTAssertLessThan(points.first!.distance(to: start), 0.01)
         XCTAssertLessThan(points.last!.distance(to: anchor), 0.01)
+
+        // A cord leaving the top of the mic heads up, not down through the mic.
+        let rising = Coil.points(from: start, to: anchor, rising: true)
+        XCTAssertLessThan(rising[rising.count / 10].y, start.y)
     }
 
     private let bounds = CGRect(x: 0, y: 30, width: 1440, height: 870)

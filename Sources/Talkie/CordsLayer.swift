@@ -22,7 +22,7 @@ struct CordsLayer: View {
             ForEach(order, id: \.self) { c in
                 if docks[c] != nil, let sim = cords[c] {
                     PlugView(color: Self.color(c), lifted: sim.dragging)
-                        .frame(width: 36, height: 36)
+                        .frame(width: 32, height: 32)
                         .contentShape(Circle())
                         .position(sim.plug)
                         .gesture(
@@ -69,8 +69,8 @@ struct PlugView: View {
             ZStack {
                 Circle().fill(color)
                 Circle().stroke(Palette.ink, lineWidth: 2)
-                Circle().stroke(Palette.ink, lineWidth: 2).frame(width: 21, height: 21)
-                Circle().fill(Palette.ink).frame(width: 11, height: 11)
+                Circle().stroke(Palette.ink, lineWidth: 2).frame(width: 19, height: 19)
+                Circle().fill(Palette.ink).frame(width: 10, height: 10)
             }
             .offset(x: lifted ? -3 : 0, y: lifted ? -4 : 0)
         }

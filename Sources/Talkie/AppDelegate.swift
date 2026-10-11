@@ -82,17 +82,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
 
     @objc func showBoard() {
         if boardWindow == nil {
-            let host = NSHostingView(rootView: BoardView(model: model))
-            let window = NSWindow(
-                contentRect: NSRect(origin: .zero, size: host.fittingSize),
-                styleMask: [.titled, .closable, .miniaturizable],
-                backing: .buffered,
-                defer: false
-            )
-            window.title = "Talkie"
-            window.contentView = host
-            window.isReleasedWhenClosed = false
-            window.backgroundColor = NSColor(Palette.shell)
+            let window = makeDeviceWindow(title: "Talkie", content: BoardView(model: model))
             window.center()
             boardWindow = window
         }
@@ -158,6 +148,31 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         let p = content.convert(wheel.location, from: nil)
         let y = content.isFlipped ? p.y : content.bounds.height - p.y
         cards.wheel(at: CGPoint(x: p.x, y: y), deltaY: wheel.deltaY)
+    }
+
+    /// A transparent window whose visible edge is the device's own rounded shell (drawn by
+    /// DeviceWindow). The real traffic lights sit on its title strip.
+    private func makeDeviceWindow<Content: View>(title: String, content: Content) -> NSWindow {
+        let host = NSHostingView(rootView: content)
+        let window = NSWindow(
+            contentRect: NSRect(origin: .zero, size: host.fittingSize),
+            styleMask: [.titled, .closable, .miniaturizable, .fullSizeContentView],
+            backing: .buffered,
+            defer: false
+        )
+        window.title = title
+        window.titleVisibility = .hidden
+        window.titlebarAppearsTransparent = true
+        // An empty compact toolbar makes the title bar tall enough to centre the traffic lights on the strip.
+        window.toolbar = NSToolbar(identifier: "device")
+        window.toolbarStyle = .unifiedCompact
+        window.titlebarSeparatorStyle = .none
+        window.isOpaque = false
+        window.backgroundColor = .clear
+        window.hasShadow = false
+        window.contentView = host
+        window.isReleasedWhenClosed = false
+        return window
     }
 
     private func toggleBoard() {

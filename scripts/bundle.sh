@@ -18,6 +18,7 @@ mkdir -p "$APP/Contents/MacOS" "$APP/Contents/Resources"
 lipo -create "$BIN/Talkie" "$INTEL_BIN/Talkie" -output "$APP/Contents/MacOS/Talkie"
 lipo -info "$APP/Contents/MacOS/Talkie"
 cp Support/Info.plist "$APP/Contents/Info.plist"
+iconutil -c icns Support/AppIcon.iconset -o "$APP/Contents/Resources/AppIcon.icns"
 # Fonts ship inside the SwiftPM resource bundle; keep it under Resources so the app stays signable.
 if [ -d "$BIN/Talkie_Talkie.bundle" ]; then
   cp -R "$BIN/Talkie_Talkie.bundle" "$APP/Contents/Resources/"

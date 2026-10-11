@@ -1,119 +1,153 @@
 import SwiftUI
 import TalkieCore
 
-/// Draws the handheld mic. Works in the prototype's SVG units (viewBox 20 30 160 275),
-/// so the drawing can be checked against design/prototype.html.
+/// Draws the Relay handset: a rounded body with a slotted grille, a round TALK key on the front,
+/// the effect (orange) and buzz keys on the side, and a name tag riding on the cord above it.
+/// Works in the design's own units (the Relay master is 140 × 270) so it can be checked against it.
 enum MicArt {
-    static let viewBox = CGRect(x: 20, y: 30, width: 160, height: 275)
-    /// Where the coiled cord leaves the mic, in viewBox units.
-    static let cordExit = CGPoint(x: 110, y: 300)
+    /// The part of the drawing that's on screen: from the name tag down to the body's shadow.
+    static let viewBox = CGRect(x: 8, y: 52, width: 124, height: 196)
+    /// Where the coiled cord from the menu bar joins: the top of the name tag.
+    static let cordExit = CGPoint(x: 66, y: 56)
+    /// The side keys, for hit-testing clicks.
+    static let effectKey = CGRect(x: 102, y: 116, width: 20, height: 28)
+    static let buzzKey = CGRect(x: 102, y: 150, width: 20, height: 28)
 
     enum TagLamp { case on, blink, tx, rx }
 
     struct State {
         var squeezed: Bool
-        var effectSlot: Int?
-        /// 0...3 bars on the level lights.
+        /// 0 is off, 1...4 the four effects.
+        var effectIndex: Int
+        /// 0...5 input level lights.
         var level: Int
         var tag: String
+        /// What the line is doing, at the right of the tag: A, B, A+B, IN, TX, RX or TX·RX.
+        var tagLabel: String
         var tagLamp: TagLamp
         var blinkPhase: Bool
     }
 
+    private static var body: Path {
+        var p = Path()
+        p.move(to: CGPoint(x: 32, y: 91))
+        p.addLine(to: CGPoint(x: 96, y: 91))
+        p.addQuadCurve(to: CGPoint(x: 108, y: 103), control: CGPoint(x: 108, y: 91))
+        p.addLine(to: CGPoint(x: 108, y: 161))
+        p.addQuadCurve(to: CGPoint(x: 99, y: 178), control: CGPoint(x: 108, y: 172))
+        p.addLine(to: CGPoint(x: 95, y: 225))
+        p.addQuadCurve(to: CGPoint(x: 82, y: 237), control: CGPoint(x: 94, y: 237))
+        p.addLine(to: CGPoint(x: 46, y: 237))
+        p.addQuadCurve(to: CGPoint(x: 33, y: 225), control: CGPoint(x: 34, y: 237))
+        p.addLine(to: CGPoint(x: 29, y: 178))
+        p.addQuadCurve(to: CGPoint(x: 20, y: 161), control: CGPoint(x: 20, y: 172))
+        p.addLine(to: CGPoint(x: 20, y: 103))
+        p.addQuadCurve(to: CGPoint(x: 32, y: 91), control: CGPoint(x: 20, y: 91))
+        p.closeSubpath()
+        return p
+    }
+
+    private static var lowerPlate: Path {
+        var p = Path()
+        p.move(to: CGPoint(x: 30, y: 176))
+        p.addLine(to: CGPoint(x: 98, y: 176))
+        p.addLine(to: CGPoint(x: 94, y: 225))
+        p.addQuadCurve(to: CGPoint(x: 82, y: 234), control: CGPoint(x: 93, y: 234))
+        p.addLine(to: CGPoint(x: 46, y: 234))
+        p.addQuadCurve(to: CGPoint(x: 36, y: 225), control: CGPoint(x: 37, y: 234))
+        p.closeSubpath()
+        return p
+    }
+
     static func draw(_ ctx: inout GraphicsContext, _ s: State) {
         let ink = Palette.ink
-        let line = StrokeStyle(lineWidth: 2.5, lineCap: .round, lineJoin: .round)
-        let thin = StrokeStyle(lineWidth: 1.5, lineCap: .round, lineJoin: .round)
 
-        func box(_ x: CGFloat, _ y: CGFloat, _ w: CGFloat, _ h: CGFloat, r: CGFloat = 0, fill: Color, stroke: StrokeStyle? = nil) {
-            let rect = CGRect(x: x, y: y, width: w, height: h)
-            let p = r > 0 ? Path(roundedRect: rect, cornerRadius: r) : Path(rect)
+        func rect(_ r: CGRect, radius: CGFloat, fill: Color, line: CGFloat = 0) {
+            let p = Path(roundedRect: r, cornerRadius: radius, style: .continuous)
             ctx.fill(p, with: .color(fill))
-            if let stroke { ctx.stroke(p, with: .color(ink), style: stroke) }
+            if line > 0 { ctx.stroke(p, with: .color(ink), lineWidth: line) }
         }
-        func dot(_ x: CGFloat, _ y: CGFloat, _ r: CGFloat, fill: Color, stroke: StrokeStyle? = nil) {
+        func circle(_ x: CGFloat, _ y: CGFloat, _ r: CGFloat, fill: Color?, line: CGFloat = 0, lineColor: Color = Palette.ink) {
             let p = Path(ellipseIn: CGRect(x: x - r, y: y - r, width: r * 2, height: r * 2))
-            ctx.fill(p, with: .color(fill))
-            if let stroke { ctx.stroke(p, with: .color(ink), style: stroke) }
+            if let fill { ctx.fill(p, with: .color(fill)) }
+            if line > 0 { ctx.stroke(p, with: .color(lineColor), lineWidth: line) }
+        }
+        func label(_ text: String, size: CGFloat, weight: String, color: Color, at p: CGPoint, anchor: UnitPoint = .center) {
+            ctx.draw(Text(text).font(Fonts.jura(size, weight)).tracking(size * 0.06).foregroundStyle(color), at: p, anchor: anchor)
         }
 
-        // Side keys, partly hidden behind the body: effect (orange), buzz (cream), and a spare.
-        box(144, 58, 28, 30, r: 4, fill: Palette.orange, stroke: line)
-        box(144, 106, 28, 28, r: 4, fill: Palette.plate, stroke: line)
-        box(144, 194, 26, 24, r: 4, fill: Palette.plate, stroke: line)
+        // The cord between the name tag and the body.
+        var stub = Path()
+        stub.move(to: CGPoint(x: 66, y: 79))
+        stub.addLine(to: CGPoint(x: 66, y: 92))
+        ctx.stroke(stub, with: .color(ink), style: StrokeStyle(lineWidth: 5, lineCap: .round))
+        ctx.stroke(stub, with: .color(Palette.lampOff), style: StrokeStyle(lineWidth: 2.5, lineCap: .round))
 
-        // The squeeze handle swings in toward the body while you talk.
-        var handleCtx = ctx
-        if s.squeezed {
-            handleCtx.translateBy(x: 70, y: 206)
-            handleCtx.rotate(by: .degrees(9))
-            handleCtx.translateBy(x: -70, y: -206)
-        }
-        var handle = Path()
-        handle.move(to: CGPoint(x: 70, y: 54))
-        handle.addLine(to: CGPoint(x: 40, y: 62))
-        handle.addQuadCurve(to: CGPoint(x: 31, y: 78), control: CGPoint(x: 28, y: 65))
-        handle.addLine(to: CGPoint(x: 62, y: 206))
-        handle.addLine(to: CGPoint(x: 70, y: 206))
-        handle.closeSubpath()
-        handleCtx.fill(handle, with: .color(Palette.orange))
-        handleCtx.stroke(handle, with: .color(ink), style: line)
-
-        // Grille
-        box(62, 40, 96, 118, fill: Palette.micGrille, stroke: line)
-        for row in 0..<11 {
-            for col in 0..<9 {
-                if col == 7 && ((1...4).contains(row) || (6...9).contains(row)) { continue }
-                let edge = col == 0 || col == 8 || row == 0 || row == 10
-                dot(69 + 10 * CGFloat(col), 47 + 10 * CGFloat(row), 3.7,
-                    fill: edge ? Palette.dotRing : ink,
-                    stroke: edge ? StrokeStyle(lineWidth: 1.2) : nil)
-            }
-        }
-
-        // Effect lights (one per preset) and level lights.
-        box(133, 51, 12, 42, r: 6, fill: Palette.pill, stroke: thin)
-        box(133, 101, 12, 42, r: 6, fill: Palette.pill, stroke: thin)
-        for k in 0..<4 {
-            dot(139, 57 + 10 * CGFloat(k), 3.2, fill: s.effectSlot == k + 1 ? Palette.ledRed : Palette.ledOff, stroke: StrokeStyle(lineWidth: 1.2))
-            let levelOn = k == 0 || 3 - k < s.level
-            dot(139, 107 + 10 * CGFloat(k), 3.2, fill: levelOn ? Palette.ledWhite : Palette.ledOff, stroke: StrokeStyle(lineWidth: 1.2))
-        }
-
-        // Lower plate
-        box(62, 158, 96, 92, fill: Palette.plate, stroke: line)
-        for (x, y) in [(73.0, 169.0), (147.0, 169.0), (73.0, 239.0), (147.0, 239.0)] {
-            dot(x, y, 5, fill: Palette.plate, stroke: thin)
-        }
-        ctx.draw(
-            Text("TALKIE").font(Fonts.jura(19, "Regular")).tracking(0.8).foregroundStyle(ink),
-            at: CGPoint(x: 110, y: 205),
-            anchor: .center
-        )
-
-        // Strain relief where the cord leaves the mic
-        box(104, 250, 12, 50, fill: Palette.slate, stroke: thin)
-        for k in 0..<5 {
-            box(96, 255 + 9 * CGFloat(k), 28, 5, fill: Palette.slate, stroke: thin)
-        }
-
-        // Name tag: who's on the line
+        // Name tag: who's on the line, and what it's doing.
         if !s.tag.isEmpty {
-            let label = ctx.resolve(Text(s.tag).font(Fonts.jura(11, "Bold")).tracking(0.9).foregroundStyle(Palette.white))
-            let textSize = label.measure(in: CGSize(width: 400, height: 40))
-            let w = textSize.width + 30, h: CGFloat = 20
-            let right: CGFloat = 86, bottom: CGFloat = 298
-            box(right - w, bottom - h, w, h, fill: Palette.key, stroke: thin)
-            let lampColor: Color
+            rect(CGRect(x: 13, y: 56, width: 110, height: 23), radius: 4, fill: Palette.key, line: 2)
+            let lamp: Color
             switch s.tagLamp {
-            case .on: lampColor = Palette.orange
-            case .tx: lampColor = Palette.orange
-            case .rx: lampColor = s.blinkPhase ? Palette.white : Palette.orange
-            case .blink: lampColor = s.blinkPhase ? Palette.orange : Palette.lampOff
+            case .on, .tx: lamp = Palette.orange
+            case .rx: lamp = s.blinkPhase ? Palette.white : Palette.orange
+            case .blink: lamp = s.blinkPhase ? Palette.orange : Palette.lampOff
             }
-            if s.tagLamp == .tx { dot(right - w + 11, bottom - h / 2, 7.5, fill: Palette.orangeGlow) }
-            dot(right - w + 11, bottom - h / 2, 4.5, fill: lampColor, stroke: StrokeStyle(lineWidth: 1.2))
-            ctx.draw(label, at: CGPoint(x: right - w + 20, y: bottom - h / 2), anchor: .leading)
+            if s.tagLamp == .tx { circle(25, 67.5, 6, fill: Palette.orangeGlow) }
+            circle(25, 67.5, 3.3, fill: lamp, line: 0.7, lineColor: Palette.white)
+            // Long names shrink to fit; the full list is in the accessibility label.
+            let right = ctx.resolve(Text(s.tagLabel).font(Fonts.jura(8, "Bold")).tracking(0.5).foregroundStyle(Palette.orange))
+            let rightWidth = right.measure(in: CGSize(width: 60, height: 20)).width
+            ctx.draw(right, at: CGPoint(x: 117, y: 67.5), anchor: .trailing)
+            let room = 117 - rightWidth - 6 - 33
+            var size: CGFloat = 11
+            var name = ctx.resolve(Text(s.tag).font(Fonts.jura(size, "SemiBold")).tracking(0.6).foregroundStyle(Palette.white))
+            while size > 7, name.measure(in: CGSize(width: 400, height: 30)).width > room {
+                size -= 0.5
+                name = ctx.resolve(Text(s.tag).font(Fonts.jura(size, "SemiBold")).tracking(0.6).foregroundStyle(Palette.white))
+            }
+            ctx.draw(name, at: CGPoint(x: 33, y: 67.5), anchor: .leading)
         }
+
+        // One hard shadow for the body.
+        ctx.fill(body.offsetBy(dx: 6, dy: 8), with: .color(Palette.shadow))
+
+        // Side keys, tucked behind the body: effect and buzz.
+        rect(CGRect(x: 104, y: 118, width: 16, height: 24), radius: 4, fill: Palette.orange, line: 2)
+        rect(CGRect(x: 104, y: 152, width: 16, height: 24), radius: 4, fill: Palette.plate, line: 2)
+        label("FX", size: 5.6, weight: "Bold", color: ink, at: CGPoint(x: 114, y: 130))
+        label("BZ", size: 5.6, weight: "Bold", color: ink, at: CGPoint(x: 114, y: 164))
+
+        // Body and grille.
+        ctx.fill(body, with: .color(Palette.shell))
+        ctx.stroke(body, with: .color(ink), style: StrokeStyle(lineWidth: 2, lineJoin: .round))
+        rect(CGRect(x: 29, y: 101, width: 70, height: 65), radius: 6, fill: Palette.micGrille, line: 1.5)
+        for i in 0..<7 {
+            rect(CGRect(x: 36, y: 110 + 7 * CGFloat(i), width: 42, height: 2.4), radius: 1, fill: ink)
+        }
+
+        // Input level (lights from the bottom up) and the effect in use (one of five).
+        for i in 0..<5 {
+            let lit = i >= 5 - s.level
+            let square = Path(CGRect(x: 86, y: 111 + 6 * CGFloat(i), width: 3.5, height: 3.5))
+            ctx.fill(square, with: .color(lit ? Palette.orange : Palette.lampOff))
+            ctx.stroke(square, with: .color(ink), lineWidth: 0.7)
+            circle(94, 113 + 6 * CGFloat(i), 1.8, fill: s.effectIndex == i ? Palette.white : Palette.lampOff, line: 0.7)
+        }
+
+        // Lower plate, screws and the round TALK key.
+        ctx.fill(lowerPlate, with: .color(Palette.plate))
+        var seam = Path()
+        seam.move(to: CGPoint(x: 30, y: 176))
+        seam.addLine(to: CGPoint(x: 98, y: 176))
+        ctx.stroke(seam, with: .color(ink), lineWidth: 1.5)
+        circle(26, 171, 1.9, fill: Palette.plate, line: 0.7)
+        circle(102, 171, 1.9, fill: Palette.plate, line: 0.7)
+
+        circle(64, 203, 20, fill: ink)
+        let keyY: CGFloat = s.squeezed ? 203.5 : 201
+        circle(64, keyY, 18, fill: s.squeezed ? Palette.orange : Palette.white, line: 1.5)
+        circle(64, keyY, 12, fill: nil, line: 1)
+        label("TALK", size: 6.5, weight: "SemiBold", color: ink, at: CGPoint(x: 64, y: keyY))
+        label("TALKIE", size: 7.7, weight: "Regular", color: ink, at: CGPoint(x: 64, y: 226.5))
     }
 }

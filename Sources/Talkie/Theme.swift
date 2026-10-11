@@ -93,3 +93,110 @@ enum Fonts {
         return []
     }
 }
+
+/// Relay geometry: rounded shoulders outside, inset panels inside, short raised keys.
+enum Radius {
+    static let window: CGFloat = 20
+    static let panel: CGFloat = 12
+    static let inset: CGFloat = 10
+    static let key: CGFloat = 5
+}
+
+/// A Relay device window: the grey shell with rounded shoulders, a plate title strip under the
+/// real traffic lights, and a hard offset shadow. The NSWindow behind it is transparent.
+struct DeviceWindow<Content: View>: View {
+    static var titleHeight: CGFloat { 38 }
+    /// Room around the shell for its outline and shadow.
+    static var shadowInsets: EdgeInsets { EdgeInsets(top: 1, leading: 1, bottom: 9, trailing: 7) }
+
+    let title: String
+    @ViewBuilder let content: Content
+
+    var body: some View {
+        let shape = RoundedRectangle(cornerRadius: Radius.window, style: .continuous)
+        VStack(spacing: 0) {
+            Text(title)
+                .font(Fonts.jura(11, "SemiBold"))
+                .tracking(1.6)
+                .foregroundStyle(Palette.ink)
+                .frame(maxWidth: .infinity)
+                .frame(height: Self.titleHeight)
+                .background(Palette.plate)
+                .overlay(alignment: .bottom) { Rectangle().fill(Palette.ink).frame(height: 1.5) }
+                .accessibilityAddTraits(.isHeader)
+            content
+        }
+        .background(Palette.shell)
+        .clipShape(shape)
+        .overlay(shape.strokeBorder(Palette.ink, lineWidth: 2))
+        .background(shape.fill(Palette.shadow).offset(x: 6, y: 8))
+        .padding(Self.shadowInsets)
+    }
+}
+
+/// An inset panel: plate (or another fill) with a thin ink outline.
+struct InsetPanel: ViewModifier {
+    var fill: Color = Palette.plate
+    var radius: CGFloat = Radius.panel
+    var line: CGFloat = 1.5
+
+    func body(content: Content) -> some View {
+        let shape = RoundedRectangle(cornerRadius: radius, style: .continuous)
+        return content
+            .background(shape.fill(fill))
+            .overlay(shape.strokeBorder(Palette.ink, lineWidth: line))
+    }
+}
+
+extension View {
+    func insetPanel(_ fill: Color = Palette.plate, radius: CGFloat = Radius.panel, line: CGFloat = 1.5) -> some View {
+        modifier(InsetPanel(fill: fill, radius: radius, line: line))
+    }
+}
+
+/// A short raised key: white face, 5pt corners, sitting on a 3pt ink base it drops onto when pressed.
+struct RelayKeyStyle: ButtonStyle {
+    var fill: Color = Palette.white
+    var text: Color = Palette.ink
+
+    func makeBody(configuration: Configuration) -> some View {
+        let shape = RoundedRectangle(cornerRadius: Radius.key, style: .continuous)
+        return configuration.label
+            .font(Fonts.jura(11, "SemiBold"))
+            .tracking(1)
+            .foregroundStyle(text)
+            .background(shape.fill(fill))
+            .overlay(shape.strokeBorder(Palette.ink, lineWidth: 1.5))
+            .offset(y: configuration.isPressed ? 3 : 0)
+            .background(shape.fill(Palette.ink).offset(y: 3))
+            .contentShape(shape)
+    }
+}
+
+/// An on/off switch drawn like the rest of the hardware.
+struct RelayToggleStyle: ToggleStyle {
+    func makeBody(configuration: Configuration) -> some View {
+        Button {
+            configuration.isOn.toggle()
+        } label: {
+            HStack(spacing: 10) {
+                configuration.label
+                Spacer(minLength: 0)
+                ZStack(alignment: configuration.isOn ? .trailing : .leading) {
+                    Capsule().fill(configuration.isOn ? Palette.ink : Palette.paper)
+                    Capsule().strokeBorder(Palette.ink, lineWidth: 1.2)
+                    Circle()
+                        .fill(Palette.white)
+                        .overlay(Circle().strokeBorder(Palette.ink, lineWidth: 1))
+                        .frame(width: 14, height: 14)
+                        .padding(3)
+                }
+                .frame(width: 36, height: 20)
+                .animation(.easeOut(duration: 0.12), value: configuration.isOn)
+            }
+            .contentShape(Rectangle())
+        }
+        .buttonStyle(.plain)
+        .accessibilityValue(configuration.isOn ? "On" : "Off")
+    }
+}
