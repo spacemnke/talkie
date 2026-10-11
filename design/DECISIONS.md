@@ -25,14 +25,14 @@ a patch cord into their jack. The line opens instantly; there is no ringing and 
 | Adding friends | A friend sends you their code (`TLK-7Q4F`). You check it in the card file, it issues a line card, and you drag the card into the punch. The punch reads it, accepts it, puts the friend on the next free jack and files the card in the Rolodex. Each code works once. |
 | Look | **Relay.** Light hardware grey, ink outlines, one signal orange; Jura for the hardware, Doto for the LCD. Rounded device shells (20pt windows), inset panels, short raised keys (5pt corners on a 3pt ink base). |
 | The mic's shape | The Relay handset: a rounded body with a slotted grille, a round TALK key on the front, FX (orange) and buzz side keys, effect and level lights, and a name tag on a cord from the top. Replaces the earlier squeeze-handle mic. |
+| Name | **Talkie.** switchtalkie.com is the address, not a new name. |
+| Ejected friends | Only the eight on your board can open a line to you. Someone you ejected can still try: the line doesn't open, your LCD says they knocked (`BEA · KNOCKED · PUNCH TO LET IN`), and their card is in the file if you want them back. On their side you look away, so they can't tell they were ejected. |
 | Domain | **switchtalkie.com**: the switchboard plus the walkie-talkie, and the instant line between them. Hosts the landing page now and invite links later. |
 
 ## Still open
 
-- **Ejected means unreachable?** If only the eight people on your board can patch into you, ejecting someone also stops them reaching you, without telling them. The prototype assumes yes.
 - **Hear yourself?** Monitoring your own voice with effects is fun but can feed back through speakers. Maybe headphones only.
 - **iPhone?** iOS has Apple's Push to Talk framework. Mac first either way.
-- **The name.** Talkie, or Switchtalkie to match the domain?
 
 ## Board anatomy (Relay)
 

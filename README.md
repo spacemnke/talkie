@@ -43,8 +43,9 @@ Privacy & Security** and click **Open Anyway** (or run `xattr -dr com.apple.quar
 - Space (while the board is in front) or ⌥Space (from any app) also talks. `F` changes the effect.
 - Click the menu bar icon to put the mic away or bring it back. Right-click it for the card file,
   the open line, voice effects, settings (or ⌘,) and **Simulate**: pick a friend on the board and
-  have them patch in, talk, or switch do not disturb. When they patch in, the open-line panel
-  appears under the icon; muting them there only changes what you hear.
+  have them patch in, talk, or switch do not disturb, or have someone from the Rolodex try to
+  patch in (only the eight on your board can open a line; anyone else just knocks). When a friend
+  patches in, the open-line panel appears under the icon; muting them there only changes what you hear.
 
 ### The card file
 

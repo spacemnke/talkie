@@ -372,6 +372,16 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             item.submenu = actions
             friends.addItem(item)
         }
+        // Friends in the Rolodex but not on the board can only knock.
+        let offBoard = cards.file.cards.filter { model.board.jack(of: $0.id) == nil }
+        if !offBoard.isEmpty {
+            friends.addItem(.separator())
+            for card in offBoard {
+                friends.addItem(ClosureMenuItem(title: "\(card.name.capitalized) Tries to Patch In") { [weak self] in
+                    MainActor.assumeIsolated { self?.model.simulateKnock(card.name) }
+                })
+            }
+        }
         simulate.submenu = friends
         menu.addItem(simulate)
 

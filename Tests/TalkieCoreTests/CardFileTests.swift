@@ -127,6 +127,25 @@ final class CardFileTests: XCTestCase {
         XCTAssertEqual(board.friendPatchesIn(1, now: 4), [])
     }
 
+    func testSomeoneOffYourBoardOnlyKnocks() {
+        var file = CardFile()
+        var board = Switchboard()
+        file.bringToFront(1)
+        _ = file.eject(from: &board, now: 0) // MAYA
+        _ = board.unpatch(.a, now: 0)
+
+        XCTAssertEqual(board.knock(from: "MAYA", now: 1), [.click])
+        XCTAssertFalse(board.isLive, "no line opens")
+        XCTAssertTrue(board.incoming.isEmpty)
+        XCTAssertEqual(board.readout(now: 1), Readout(big: "MAYA", sub: "KNOCKED · PUNCH TO LET IN"))
+
+        // Punching her card back puts her on the board, and then she can patch in.
+        guard let jack = file.punch(1, into: &board, now: 2).flatMap({ out -> Int? in
+            if case .accepted(let j) = out.result { return j } else { return nil }
+        }) else { return XCTFail("expected her card to be accepted") }
+        XCTAssertEqual(board.friendPatchesIn(jack, now: 3), [.lineOpened, .micDrop])
+    }
+
     func testEjectKeepsTheirLatestPresenceOnTheCard() {
         var file = CardFile()
         var board = Switchboard()

@@ -296,6 +296,14 @@ public struct Switchboard: Equatable, Sendable {
 
     // MARK: The other end (simulated until there's a network)
 
+    /// Someone who isn't on your board (an ejected friend, say) tries to patch in. Only the eight on
+    /// your board can open a line to you, so it doesn't open; you get a note, and their card is still
+    /// in the file if you want to punch them back in. On their side you just look away.
+    public mutating func knock(from name: String, now: TimeInterval) -> [BoardEvent] {
+        say(name, "KNOCKED · PUNCH TO LET IN", now: now, for: 3)
+        return [.click]
+    }
+
     public mutating func friendPatchesIn(_ jack: Int, now: TimeInterval) -> [BoardEvent] {
         guard let f = friend(jack), f.online, cord(at: jack) == nil, incoming[jack] == nil else { return [] }
         if doNotDisturb {

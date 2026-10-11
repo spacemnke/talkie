@@ -338,6 +338,7 @@ final class BoardModel {
     // MARK: Simulated friends (until there's a network)
 
     func simulateIncoming(_ jack: Int) { apply { $0.friendPatchesIn(jack, now: now) } }
+    func simulateKnock(_ name: String) { apply { $0.knock(from: name, now: now) } }
     func simulateFriendTalks(_ jack: Int) { apply { $0.friendTalks(jack, for: 2.5, now: now); return [] } }
     func simulateFriendDoNotDisturb(_ jack: Int, _ on: Bool) { apply { $0.setFriendDoNotDisturb(jack, on, now: now) } }
 
