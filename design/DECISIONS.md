@@ -59,6 +59,6 @@ A second window, next to the board.
 
 ## Build order
 
-1. **The board** — native SwiftUI switchboard and floating mic with real cord physics and haptics. Simulated friends, no networking. *(in progress)*
+1. **The board** — native SwiftUI switchboard, floating mic and card file, with real cord physics and haptics. Simulated friends and codes, no networking. *(in progress)*
 2. **The line** — two Macs talking at the same time over WebRTC (likely LiveKit), with mute, DND and the four effects.
-3. **The operator** — accounts, friends, presence lamps, invite codes and the card file, launch at login (likely Supabase).
+3. **The operator** — accounts, real invite codes behind the card file, presence lamps, launch at login (likely Supabase).

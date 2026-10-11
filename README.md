@@ -9,8 +9,8 @@ a coiled cord and floats above every app: hold it (or ⌥Space) to talk.
 
 ## Status
 
-Step 1 of 3: the board. The switchboard window, patch cords with physics and haptics, and the
-floating mic all work, with simulated friends. There's no networking or real audio yet; the sounds
+Step 1 of 3: the board. The switchboard window, patch cords with physics and haptics, the
+floating mic and the card file all work, with simulated friends and codes. There's no networking or real audio yet; the sounds
 are the board's own clicks and beeps.
 
 ## Run it
