@@ -32,9 +32,13 @@ final class BoardModel {
 
     private(set) var volume: Double = 0.7
     private(set) var soundOn = true
+    /// A jack whose name strip flashes because a friend just landed on it.
+    private(set) var arriving: Int?
 
     let sound = SoundBoard()
     @ObservationIgnored var onFrame: (() -> Void)?
+    /// Show the card file. True when it's because someone clicked a free jack.
+    @ObservationIgnored var onOpenCardFile: ((_ forFreeJack: Bool) -> Void)?
     @ObservationIgnored private var timer: Timer?
     @ObservationIgnored private var plugDrags: [CordID: PlugDrag] = [:]
     @ObservationIgnored private var pendingSeat: Set<CordID> = []
@@ -144,7 +148,8 @@ final class BoardModel {
 
     // MARK: Events
 
-    private func apply(_ change: (inout Switchboard) -> [BoardEvent]) {
+    /// Changes the board and plays whatever the change calls for. The card file uses this too.
+    func apply(_ change: (inout Switchboard) -> [BoardEvent]) {
         var b = board
         let events = change(&b)
         board = b
@@ -165,6 +170,7 @@ final class BoardModel {
             case .buzz: sound.play(.buzz)
             case .micDrop: dropMic()
             case .micStow: stowMic()
+            case .openCardFile: onOpenCardFile?(true)
             }
         }
     }
@@ -238,6 +244,23 @@ final class BoardModel {
     private func raise(_ c: CordID) {
         zOrder.removeAll { $0 == c }
         zOrder.append(c)
+    }
+
+    // MARK: Friends coming and going
+
+    func openCardFile() {
+        sound.play(.click)
+        onOpenCardFile?(false)
+    }
+
+    func flashArrival(_ jack: Int) {
+        arriving = jack
+        DispatchQueue.main.asyncAfter(deadline: .now() + 1.0) { [weak self] in
+            MainActor.assumeIsolated {
+                guard let self, self.arriving == jack else { return }
+                withAnimation(.easeOut(duration: 0.6)) { self.arriving = nil }
+            }
+        }
     }
 
     // MARK: Talking, effects, settings

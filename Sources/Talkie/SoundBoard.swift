@@ -5,6 +5,8 @@ import AVFoundation
 final class SoundBoard {
     enum Sound: CaseIterable {
         case plug, unplug, open, close, key, click, over, buzz, deny, drop, stow
+        // the card file
+        case cardIn, chunk, accept, print, flip
     }
 
     private let engine = AVAudioEngine()
@@ -81,6 +83,24 @@ final class SoundBoard {
         case .stow:
             s.tone(at: 0, duration: 0.2, peak: 0.05, from: 220, to: 950, wave: .sine)
             s.noise(at: 0.16, duration: 0.05, peak: 0.1, center: 3000, q: 1)
+        case .cardIn:
+            // the card sliding into the punch
+            s.noise(at: 0, duration: 0.3, peak: 0.22, center: 700, q: 0.6)
+            s.tone(at: 0, duration: 0.25, peak: 0.2, from: 150, to: 80, wave: .sine)
+        case .chunk:
+            // one step of the reader
+            s.noise(at: 0, duration: 0.025, peak: 0.45, center: 2600, q: 1.4)
+            s.tone(at: 0, duration: 0.035, peak: 0.12, from: 110, to: 110, wave: .square)
+        case .accept:
+            s.tone(at: 0, duration: 0.07, peak: 0.05, from: 1046, to: 1046, wave: .square)
+            s.tone(at: 0.08, duration: 0.12, peak: 0.05, from: 1568, to: 1568, wave: .square)
+        case .print:
+            // the card being issued into the OUT tray
+            for i in 0..<5 {
+                s.noise(at: Double(i) * 0.07, duration: 0.02, peak: 0.3, center: 3000, q: 1.5)
+            }
+        case .flip:
+            s.noise(at: 0, duration: 0.04, peak: 0.2, center: 4000, q: 1.2)
         }
         return s.buffer(format: format)
     }

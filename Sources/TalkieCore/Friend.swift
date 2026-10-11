@@ -24,15 +24,6 @@ public struct Friend: Equatable, Identifiable, Sendable {
 }
 
 public extension Friend {
-    /// The example board from the prototype. The last jack is free.
-    static let samples: [Friend?] = [
-        Friend(id: 0, name: "MAYA"),
-        Friend(id: 1, name: "OTTO"),
-        Friend(id: 2, name: "JUN", online: false),
-        Friend(id: 3, name: "RUBY", doNotDisturb: true),
-        Friend(id: 4, name: "LEO", online: false),
-        Friend(id: 5, name: "INÈS"),
-        Friend(id: 6, name: "KAI"),
-        nil
-    ]
+    /// The example board from the prototype: the first seven sample cards. The last jack is free.
+    static let samples: [Friend?] = LineCard.samples.prefix(7).map { $0.friend } + [nil]
 }

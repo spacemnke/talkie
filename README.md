@@ -38,7 +38,19 @@ Privacy & Security** and click **Open Anyway** (or run `xattr -dr com.apple.quar
 - When the line opens the mic drops onto your screen. Hold it to talk, drag or fling it anywhere.
 - Space (while the board is in front) or ⌥Space (from any app) also talks. `F` changes the effect.
 - Click the menu bar icon to put the mic away or bring it back. Right-click it for more, including
-  **Simulate**: have Otto patch in, Maya talk, or Ruby switch do not disturb off.
+  **Simulate**: pick a friend on the board and have them patch in, talk, or switch do not disturb.
+
+### The card file
+
+Click the free jack (08) or the **FILE** key on the board.
+
+- Type a friend's code and press **Check**. `TLK-ZOE7` and `TLK-PIP3` work; `TLK-0000` doesn't. A line
+  card drops into the OUT tray.
+- Drag the card onto the slot above the punch (or just click it). The punch reads it, puts the friend
+  on the next free jack and files the card in the Rolodex.
+- The board holds eight friends. When it's full the punch refuses the card: turn the Rolodex (the
+  knobs, the scroll wheel or the arrow keys) to someone on the board and press **Eject**. Their card
+  stays, so you can drag it back into the punch later. Nico, Bea and Tom are already in there.
 
 ## Layout
 

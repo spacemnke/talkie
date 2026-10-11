@@ -5,11 +5,14 @@ import TalkieCore
 @MainActor
 final class AppDelegate: NSObject, NSApplicationDelegate {
     let model = BoardModel()
+    private lazy var cards = CardFileModel(boardModel: model)
     private var statusItem: NSStatusItem?
     private var boardWindow: NSWindow?
+    private var cardWindow: NSWindow?
     private var overlay: MicOverlay?
     private var hotKey: HotKey?
     private var keyMonitor: Any?
+    private var wheelMonitor: Any?
     private var iconLook: StatusIcon.Look?
 
     func applicationDidFinishLaunching(_ notification: Notification) {
@@ -32,6 +35,15 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             self?.overlay?.frame()
             self?.updateStatusIcon()
         }
+        model.onOpenCardFile = { [weak self] forFreeJack in
+            guard let self else { return }
+            self.showCardFile()
+            guard forFreeJack else { return }
+            // Once the window is up, so the code field can take the cursor.
+            DispatchQueue.main.async { [weak self] in
+                MainActor.assumeIsolated { self?.cards.greetFreeJack() }
+            }
+        }
         model.start()
         showBoard()
 
@@ -46,6 +58,13 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             let key = KeyPress(event)
             let consumed = MainActor.assumeIsolated { self?.handleKey(key) ?? false }
             return consumed ? nil : event
+        }
+
+        // Scrolling over the Rolodex turns it.
+        wheelMonitor = NSEvent.addLocalMonitorForEvents(matching: .scrollWheel) { [weak self] event in
+            let wheel = Wheel(event)
+            MainActor.assumeIsolated { self?.handleWheel(wheel) }
+            return event
         }
 
         // The example board starts with a line open to Maya, so bring the mic down once everything is placed.
@@ -79,6 +98,66 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         }
         boardWindow?.makeKeyAndOrderFront(nil)
         NSApp.activate()
+    }
+
+    // MARK: Card file window
+
+    @objc func showCardFile() {
+        if cardWindow == nil {
+            let host = NSHostingView(rootView: CardFileView(model: cards))
+            let window = NSWindow(
+                contentRect: NSRect(origin: .zero, size: host.fittingSize),
+                styleMask: [.titled, .closable, .miniaturizable],
+                backing: .buffered,
+                defer: false
+            )
+            window.title = "Card File"
+            window.contentView = host
+            window.isReleasedWhenClosed = false
+            window.backgroundColor = NSColor(Palette.shell)
+            place(window, beside: boardWindow)
+            cardWindow = window
+        }
+        cardWindow?.makeKeyAndOrderFront(nil)
+        NSApp.activate()
+    }
+
+    /// To the right of the switchboard (or its left) when there's room, otherwise centred.
+    private func place(_ window: NSWindow, beside board: NSWindow?) {
+        guard let board, board.isVisible, let screen = board.screen ?? NSScreen.main else {
+            window.center()
+            return
+        }
+        let size = window.frame.size
+        let visible = screen.visibleFrame
+        var origin = NSPoint(x: board.frame.maxX + 16, y: board.frame.maxY - size.height)
+        if origin.x + size.width > visible.maxX { origin.x = board.frame.minX - 16 - size.width }
+        guard origin.x >= visible.minX else {
+            window.center()
+            return
+        }
+        origin.y = min(max(origin.y, visible.minY), visible.maxY - size.height)
+        window.setFrameOrigin(origin)
+    }
+
+    /// The parts of a scroll event we need, as plain values.
+    private struct Wheel: Sendable {
+        var windowNumber: Int
+        var location: CGPoint
+        var deltaY: CGFloat
+
+        init(_ event: NSEvent) {
+            windowNumber = event.windowNumber
+            location = event.locationInWindow
+            deltaY = event.scrollingDeltaY
+        }
+    }
+
+    private func handleWheel(_ wheel: Wheel) {
+        guard let window = cardWindow, wheel.windowNumber == window.windowNumber, let content = window.contentView else { return }
+        let p = content.convert(wheel.location, from: nil)
+        let y = content.isFlipped ? p.y : content.bounds.height - p.y
+        cards.wheel(at: CGPoint(x: p.x, y: y), deltaY: wheel.deltaY)
     }
 
     private func toggleBoard() {
@@ -160,18 +239,28 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     private func showMenu() {
         let menu = NSMenu()
         add(menu, "Open Switchboard", #selector(showBoard))
+        add(menu, "Card File", #selector(showCardFile))
         add(menu, model.mic.isVisible ? "Put the Mic Away" : "Bring the Mic Out", #selector(toggleMicItem))
         add(menu, "Do Not Disturb", #selector(toggleDoNotDisturb)).state = model.board.doNotDisturb ? .on : .off
         add(menu, "Next Effect (\(model.board.effect.next.title.capitalized))", #selector(nextEffect))
         menu.addItem(.separator())
 
+        // Pretend to be a friend on the board: patch in, talk, or switch do not disturb.
         let simulate = NSMenuItem(title: "Simulate", action: nil, keyEquivalent: "")
-        let sub = NSMenu()
-        add(sub, "Otto Patches In", #selector(simulateOtto))
-        add(sub, "Maya Talks", #selector(simulateMayaTalks))
-        let rubyDND = model.board.friend(3)?.doNotDisturb ?? false
-        add(sub, rubyDND ? "Ruby Turns Off Do Not Disturb" : "Ruby Turns On Do Not Disturb", #selector(simulateRubyDND))
-        simulate.submenu = sub
+        let friends = NSMenu()
+        for (jack, friend) in model.board.friends.enumerated() {
+            guard let friend else { continue }
+            let item = NSMenuItem(title: friend.name.capitalized, action: nil, keyEquivalent: "")
+            let actions = NSMenu()
+            add(actions, "Patches In", #selector(simulatePatchIn(_:))).tag = jack
+            add(actions, "Talks", #selector(simulateTalk(_:))).tag = jack
+            let dnd = add(actions, "Do Not Disturb", #selector(simulateDoNotDisturb(_:)))
+            dnd.tag = jack
+            dnd.state = friend.doNotDisturb ? .on : .off
+            item.submenu = actions
+            friends.addItem(item)
+        }
+        simulate.submenu = friends
         menu.addItem(simulate)
 
         menu.addItem(.separator())
@@ -193,10 +282,10 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     @objc private func toggleMicItem() { model.toggleMic() }
     @objc private func toggleDoNotDisturb() { model.toggleDoNotDisturb() }
     @objc private func nextEffect() { model.cycleEffect() }
-    @objc private func simulateOtto() { model.simulateIncoming(1) }
-    @objc private func simulateMayaTalks() { model.simulateFriendTalks(0) }
-    @objc private func simulateRubyDND() {
-        model.simulateFriendDoNotDisturb(3, !(model.board.friend(3)?.doNotDisturb ?? false))
+    @objc private func simulatePatchIn(_ sender: NSMenuItem) { model.simulateIncoming(sender.tag) }
+    @objc private func simulateTalk(_ sender: NSMenuItem) { model.simulateFriendTalks(sender.tag) }
+    @objc private func simulateDoNotDisturb(_ sender: NSMenuItem) {
+        model.simulateFriendDoNotDisturb(sender.tag, !(model.board.friend(sender.tag)?.doNotDisturb ?? false))
     }
     @objc private func quit() { NSApp.terminate(nil) }
 }

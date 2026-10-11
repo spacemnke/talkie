@@ -28,6 +28,8 @@ public enum Lamp: Equatable, Sendable {
 /// Things the app should react to with a sound, a haptic or the mic.
 public enum BoardEvent: Equatable, Sendable {
     case plugged, unplugged, lineOpened, lineClosed, denied, over, keyClick, click, buzz, micDrop, micStow
+    /// Someone clicked a free jack: show the card file so they can add a friend.
+    case openCardFile
 }
 
 public struct Message: Equatable, Sendable {
@@ -51,7 +53,6 @@ public struct Switchboard: Equatable, Sendable {
     public static let connectDelay: TimeInterval = 0.75
     public static let replyDelay: TimeInterval = 0.9
     public static let replyLength: TimeInterval = 1.7
-    public static let inviteCode = "TLK-7Q4F"
 
     public private(set) var friends: [Friend?]
     public private(set) var patches: [CordID: Patch] = [:]
@@ -88,6 +89,16 @@ public struct Switchboard: Equatable, Sendable {
         CordID.allCases.first { patches[$0] == nil }
     }
 
+    /// The first jack with nobody on it.
+    public var freeJack: Int? {
+        friends.firstIndex { $0 == nil }
+    }
+
+    /// The jack a friend is on, by their id.
+    public func jack(of friendID: Int) -> Int? {
+        friends.firstIndex { $0?.id == friendID }
+    }
+
     public func isLineOpen(_ jack: Int) -> Bool {
         if incoming[jack] != nil { return true }
         guard let c = cord(at: jack) else { return false }
@@ -121,7 +132,7 @@ public struct Switchboard: Equatable, Sendable {
     public mutating func patch(_ cord: CordID, into jack: Int, now: TimeInterval) -> [BoardEvent] {
         guard friends.indices.contains(jack) else { return [] }
         guard let f = friends[jack] else {
-            say("+ ADD", "INVITE CODE \(Self.inviteCode)", now: now)
+            say("FREE JACK", "ADD A FRIEND IN THE CARD FILE", now: now)
             return [.denied]
         }
         if let other = self.cord(at: jack), other != cord {
@@ -161,8 +172,8 @@ public struct Switchboard: Equatable, Sendable {
         if let c = cord(at: jack) { return (nil, unpatch(c, now: now)) }
         if incoming[jack] != nil { return (nil, hangUp(jack, now: now)) }
         guard friend(jack) != nil else {
-            say("+ ADD", "INVITE CODE \(Self.inviteCode)", now: now)
-            return (nil, [.denied])
+            say("FREE JACK", "ADD A FRIEND IN THE CARD FILE", now: now)
+            return (nil, [.openCardFile])
         }
         guard let free = freeCord else {
             say("NO CORD", "PULL A PLUG FIRST", now: now)
@@ -176,6 +187,29 @@ public struct Switchboard: Equatable, Sendable {
         let wasLive = true
         clearFriend(jack)
         return [.lineClosed] + liveTransition(wasLive)
+    }
+
+    // MARK: Who's on the board
+
+    /// Puts a friend on a free jack (the card file does this when it accepts their card).
+    public mutating func addFriend(_ f: Friend, at jack: Int, now: TimeInterval) -> [BoardEvent] {
+        guard friends.indices.contains(jack), friends[jack] == nil, self.jack(of: f.id) == nil else { return [] }
+        friends[jack] = f
+        say(f.name, "NEW ON JACK " + String(format: "%02d", jack + 1), now: now)
+        return [.plugged]
+    }
+
+    /// Ejects whoever is on a jack. Their cord comes out and a line they opened to you closes.
+    public mutating func removeFriend(at jack: Int, now: TimeInterval) -> [BoardEvent] {
+        guard let f = friend(jack) else { return [] }
+        var events: [BoardEvent] = []
+        if let c = cord(at: jack) { events += unpatch(c, now: now) }
+        if incoming[jack] != nil { events += hangUp(jack, now: now) }
+        clearFriend(jack)
+        if focus == jack { focus = nil }
+        friends[jack] = nil
+        say("JACK " + String(format: "%02d", jack + 1), "FREE · \(f.name) IS IN THE ROLODEX", now: now)
+        return events.contains(.unplugged) ? events : [.unplugged] + events
     }
 
     // MARK: Time

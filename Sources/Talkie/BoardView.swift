@@ -275,7 +275,7 @@ private struct JackView: View {
                 }
                 .frame(maxWidth: 78)
 
-                NameStrip(friend: friend)
+                NameStrip(friend: friend, arriving: model.arriving == index)
 
                 Hole(near: model.nearJack == index, free: friend == nil)
                     .background(GeometryReader { g in
@@ -290,7 +290,7 @@ private struct JackView: View {
     }
 
     private func accessibilityText(_ friend: Friend?) -> String {
-        guard let friend else { return "Jack \(index + 1): free, invite a friend" }
+        guard let friend else { return "Jack \(index + 1): free, add a friend in the card file" }
         let presence: String
         switch friend.presence {
         case .online: presence = "online"
@@ -303,6 +303,8 @@ private struct JackView: View {
 
 private struct NameStrip: View {
     let friend: Friend?
+    /// Flashes orange for a moment when a friend lands on the jack.
+    var arriving = false
 
     var body: some View {
         HStack(spacing: 4) {
@@ -315,11 +317,11 @@ private struct NameStrip: View {
         }
         .font(Fonts.jura(11, "SemiBold"))
         .tracking(0.7)
-        .foregroundStyle(friend == nil ? Palette.mute : (friend!.online ? Palette.white : Palette.away))
+        .foregroundStyle(arriving ? Palette.white : friend == nil ? Palette.mute : (friend!.online ? Palette.white : Palette.away))
         .padding(.horizontal, 6)
         .padding(.vertical, 4)
         .frame(maxWidth: 78)
-        .background(friend == nil ? Color.clear : Palette.key)
+        .background(arriving ? Palette.orange : friend == nil ? Color.clear : Palette.key)
         .overlay(
             Rectangle().stroke(Palette.ink, style: StrokeStyle(lineWidth: 1.5, dash: friend == nil ? [3, 3] : []))
         )
@@ -425,6 +427,13 @@ private struct Deck: View {
                 KeyFace(title: "DND", detail: model.board.doNotDisturb ? "ON" : "OFF", lit: model.board.doNotDisturb)
             }
             .buttonStyle(HardKeyStyle(fill: Palette.white))
+
+            Button { model.openCardFile() } label: {
+                KeyFace(title: "FILE", detail: "CARDS", lit: model.board.freeJack != nil)
+            }
+            .buttonStyle(HardKeyStyle(fill: Palette.white))
+            .accessibilityLabel("Card file")
+            .accessibilityHint("Add friends with their codes, and keep their cards.")
         }
         .padding(EdgeInsets(top: 14, leading: 12, bottom: 18, trailing: 12))
     }
