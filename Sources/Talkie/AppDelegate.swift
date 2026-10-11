@@ -9,6 +9,11 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     private var statusItem: NSStatusItem?
     private var boardWindow: NSWindow?
     private var cardWindow: NSWindow?
+    private var lineWindow: NSWindow?
+    private var effectsWindow: NSWindow?
+    private var settingsWindow: NSWindow?
+    private var welcomeWindow: NSWindow?
+    private static let finishedWelcome = "didFinishFirstRun"
     private var overlay: MicOverlay?
     private var hotKey: HotKey?
     private var keyMonitor: Any?
@@ -44,8 +49,11 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
                 MainActor.assumeIsolated { self?.cards.greetFreeJack() }
             }
         }
+        // Someone patched in: show who, with the talk key and private mute, under the menu bar icon.
+        model.onIncoming = { [weak self] jack in self?.showLine(jack) }
         model.start()
-        showBoard()
+        let firstRun = !UserDefaults.standard.bool(forKey: Self.finishedWelcome)
+        if firstRun { showWelcome() } else { showBoard() }
 
         // Hold ⌥Space to talk from any app.
         let hotKey = HotKey()
@@ -68,12 +76,100 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         }
 
         // The example board starts with a line open to Maya, so bring the mic down once everything is placed.
+        if !firstRun { dropMicSoon() }
+    }
+
+    private func dropMicSoon() {
         DispatchQueue.main.asyncAfter(deadline: .now() + 0.6) { [weak self] in
             MainActor.assumeIsolated {
                 guard let self, self.model.board.isLive else { return }
                 self.model.dropMic()
             }
         }
+    }
+
+    // MARK: Welcome, open line, effects, settings
+
+    @objc func showWelcome() {
+        if welcomeWindow == nil {
+            let view = FirstRunView(model: model, cards: cards) { [weak self] in
+                MainActor.assumeIsolated { self?.finishWelcome() }
+            }
+            let window = makeDeviceWindow(title: "Welcome to Talkie", content: view)
+            window.center()
+            welcomeWindow = window
+        }
+        welcomeWindow?.makeKeyAndOrderFront(nil)
+        NSApp.activate()
+    }
+
+    private func finishWelcome() {
+        let first = !UserDefaults.standard.bool(forKey: Self.finishedWelcome)
+        UserDefaults.standard.set(true, forKey: Self.finishedWelcome)
+        welcomeWindow?.close()
+        welcomeWindow = nil
+        showBoard()
+        if first { dropMicSoon() }
+    }
+
+    /// When a friend patches in it appears without taking focus from what you're doing.
+    func showLine(_ jack: Int, activate: Bool = false) {
+        lineWindow?.close()
+        let view = IncomingLineView(model: model, jack: jack) { [weak self] in
+            MainActor.assumeIsolated {
+                self?.lineWindow?.close()
+                self?.lineWindow = nil
+            }
+        }
+        let window = makeDeviceWindow(title: "Open Line", content: view)
+        window.level = .floating
+        placeUnderMenuBarIcon(window)
+        lineWindow = window
+        if activate {
+            window.makeKeyAndOrderFront(nil)
+            NSApp.activate()
+        } else {
+            window.orderFrontRegardless()
+        }
+    }
+
+    @objc private func showOpenLine() {
+        guard let jack = model.board.focus.flatMap({ model.board.isLineOpen($0) ? $0 : nil }) ?? model.board.openJacks.first else { return }
+        showLine(jack, activate: true)
+    }
+
+    @objc func showEffects() {
+        if effectsWindow == nil {
+            let window = makeDeviceWindow(title: "Voice Effects", content: EffectsView(model: model))
+            placeUnderMenuBarIcon(window)
+            effectsWindow = window
+        }
+        effectsWindow?.makeKeyAndOrderFront(nil)
+        NSApp.activate()
+    }
+
+    @objc func showSettings() {
+        if settingsWindow == nil {
+            let window = makeDeviceWindow(title: "Settings", content: SettingsView(model: model))
+            window.center()
+            settingsWindow = window
+        }
+        settingsWindow?.makeKeyAndOrderFront(nil)
+        NSApp.activate()
+    }
+
+    /// Just under the Talkie icon in the menu bar, kept on screen.
+    private func placeUnderMenuBarIcon(_ window: NSWindow) {
+        guard let iconWindow = statusItem?.button?.window, let screen = iconWindow.screen ?? NSScreen.main else {
+            window.center()
+            return
+        }
+        let size = window.frame.size
+        let visible = screen.visibleFrame
+        var origin = NSPoint(x: iconWindow.frame.midX - size.width / 2, y: iconWindow.frame.minY - size.height - 6)
+        origin.x = min(max(origin.x, visible.minX + 8), visible.maxX - size.width - 8)
+        origin.y = max(origin.y, visible.minY + 8)
+        window.setFrameOrigin(origin)
     }
 
     func applicationShouldTerminateAfterLastWindowClosed(_ sender: NSApplication) -> Bool { false }
@@ -180,6 +276,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         var isDown: Bool
         var isRepeat: Bool
         var plain: Bool
+        var command: Bool
         var character: String
 
         init(_ event: NSEvent) {
@@ -188,12 +285,18 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             isDown = event.type == .keyDown
             isRepeat = isDown && event.isARepeat
             plain = event.modifierFlags.intersection([.command, .control, .option]).isEmpty
+            command = event.modifierFlags.intersection([.command, .control, .option]) == .command
             character = event.charactersIgnoringModifiers?.lowercased() ?? ""
         }
     }
 
     /// Returns true when the key was used.
     private func handleKey(_ key: KeyPress) -> Bool {
+        // ⌘, opens Talkie's settings from any of its windows.
+        if key.isDown, key.command, key.character == "," {
+            showSettings()
+            return true
+        }
         guard let boardWindow, key.windowNumber == boardWindow.windowNumber else { return false }
         if key.keyCode == 49 { // space
             if key.isDown {
@@ -245,6 +348,10 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         let menu = NSMenu()
         add(menu, "Open Switchboard", #selector(showBoard))
         add(menu, "Card File", #selector(showCardFile))
+        if !model.board.openJacks.isEmpty {
+            add(menu, "Open Line", #selector(showOpenLine))
+        }
+        add(menu, "Voice Effects…", #selector(showEffects))
         add(menu, model.mic.isVisible ? "Put the Mic Away" : "Bring the Mic Out", #selector(toggleMicItem))
         add(menu, "Do Not Disturb", #selector(toggleDoNotDisturb)).state = model.board.doNotDisturb ? .on : .off
         add(menu, "Next Effect (\(model.board.effect.next.title.capitalized))", #selector(nextEffect))
@@ -269,6 +376,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         menu.addItem(simulate)
 
         menu.addItem(.separator())
+        add(menu, "Settings…", #selector(showSettings))
+        add(menu, "Welcome to Talkie…", #selector(showWelcome))
         add(menu, "Quit Talkie", #selector(quit))
 
         statusItem?.menu = menu

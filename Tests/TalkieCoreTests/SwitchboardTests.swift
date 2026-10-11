@@ -129,6 +129,28 @@ final class SwitchboardTests: XCTestCase {
         XCTAssertTrue(b.replies.isEmpty)
     }
 
+    func testYourMuteOnlyChangesWhatYouHear() {
+        var b = Switchboard()
+        openLine(&b)
+        b.friendTalks(0, for: 2, now: 1)
+        _ = b.tick(now: 1.1)
+        XCTAssertTrue(b.flags.rx)
+
+        b.mute(0, true)
+        XCTAssertTrue(b.isMuted(0))
+        XCTAssertFalse(b.flags.rx, "you don't hear her")
+        XCTAssertNotEqual(b.readout(now: 1.2).sub, "MAYA TALKING")
+        // Her side is untouched: she can still hear you and answer.
+        XCTAssertTrue(b.mutedYou.isEmpty)
+
+        // It's kept by friend, so it survives the call ending.
+        _ = b.unpatch(.a, now: 2)
+        openLine(&b, at: 3)
+        XCTAssertTrue(b.isMuted(0))
+        b.mute(0, false)
+        XCTAssertFalse(b.isMuted(0))
+    }
+
     func testIncomingPatchDropsTheMicAndCanBeHungUp() {
         var b = Switchboard()
         XCTAssertEqual(b.friendPatchesIn(1, now: 0), [.lineOpened, .micDrop])

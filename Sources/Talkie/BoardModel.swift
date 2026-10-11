@@ -39,6 +39,17 @@ final class BoardModel {
     @ObservationIgnored var onFrame: (() -> Void)?
     /// Show the card file. True when it's because someone clicked a free jack.
     @ObservationIgnored var onOpenCardFile: ((_ forFreeJack: Bool) -> Void)?
+    /// A friend just patched in to you (the jack they're on).
+    @ObservationIgnored var onIncoming: ((_ jack: Int) -> Void)?
+    @ObservationIgnored private var knownIncoming: Set<Int> = []
+    @ObservationIgnored private let defaults = UserDefaults.standard
+
+    private enum Saved {
+        static let soundOn = "soundOn"
+        static let volume = "volume"
+        static let micHome = "micHome"
+        static let muted = "mutedFriends"
+    }
     @ObservationIgnored private var timer: Timer?
     @ObservationIgnored private var plugDrags: [CordID: PlugDrag] = [:]
     @ObservationIgnored private var pendingSeat: Set<CordID> = []
@@ -67,7 +78,15 @@ final class BoardModel {
         let t = now
         _ = board.patch(.a, into: 0, now: t - Switchboard.connectDelay)
         _ = board.tick(now: t)
-        sound.volume = Float(volume)
+
+        // What you set last time: sound, volume, who you muted, where you left the mic.
+        if defaults.object(forKey: Saved.soundOn) != nil { soundOn = defaults.bool(forKey: Saved.soundOn) }
+        if defaults.object(forKey: Saved.volume) != nil { volume = min(max(defaults.double(forKey: Saved.volume), 0), 1) }
+        if let ids = defaults.array(forKey: Saved.muted) as? [Int] { board.setMutedFriends(Set(ids)) }
+        if let home = defaults.array(forKey: Saved.micHome) as? [Double], home.count == 2 {
+            mic.home = CGPoint(x: home[0], y: home[1])
+        }
+        sound.volume = Float(soundOn ? volume : 0)
     }
 
     func start() {
@@ -86,6 +105,7 @@ final class BoardModel {
         let events = b.tick(now: t)
         if b != board { board = b }
         handle(events)
+        noticeIncoming()
 
         stepCords()
 
@@ -99,6 +119,9 @@ final class BoardModel {
         if mic.isVisible, overlayBounds.width > 0 {
             var next = mic
             next.step(anchor: anchor, bounds: overlayBounds, size: micSize, reduceMotion: reduceMotion)
+            if let home = next.home, home != mic.home {
+                defaults.set([Double(home.x), Double(home.y)], forKey: Saved.micHome)
+            }
             if next != mic { mic = next }
         }
         onFrame?()
@@ -154,6 +177,15 @@ final class BoardModel {
         let events = change(&b)
         board = b
         handle(events)
+        noticeIncoming()
+    }
+
+    private func noticeIncoming() {
+        let current = Set(board.incoming.keys)
+        guard current != knownIncoming else { return }
+        let arrived = current.subtracting(knownIncoming)
+        knownIncoming = current
+        if let jack = arrived.min() { onIncoming?(jack) }
     }
 
     private func handle(_ events: [BoardEvent]) {
@@ -282,12 +314,20 @@ final class BoardModel {
     func toggleSound() {
         soundOn.toggle()
         sound.volume = Float(soundOn ? volume : 0)
+        defaults.set(soundOn, forKey: Saved.soundOn)
         if soundOn { sound.play(.click) }
+    }
+
+    /// Mute a friend for yourself only. Nothing is sent to them.
+    func setMuted(_ jack: Int, _ on: Bool) {
+        apply { $0.mute(jack, on); return [.click] }
+        defaults.set(Array(board.muted), forKey: Saved.muted)
     }
 
     func setVolume(_ v: Double) {
         volume = min(max(v, 0), 1)
         sound.volume = Float(soundOn ? volume : 0)
+        defaults.set(volume, forKey: Saved.volume)
         let n = Int((volume * 10).rounded())
         apply {
             $0.say(String(format: "VOL %02d", n), String(repeating: "▮", count: n) + String(repeating: "▯", count: 10 - n), now: now, for: 1.2)

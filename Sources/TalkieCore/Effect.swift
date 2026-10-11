@@ -24,6 +24,17 @@ public enum Effect: Int, CaseIterable, Sendable {
         }
     }
 
+    /// One line for the effects picker.
+    public var detail: String {
+        switch self {
+        case .off: return "Your own voice."
+        case .canyon: return "An echo with room to travel."
+        case .tinCan: return "Thin, crunchy, distant."
+        case .helium: return "One octave up."
+        case .machine: return "A little less human."
+        }
+    }
+
     /// Which of the mic's four effect lights is on (1...4), or nil when off.
     public var slot: Int? { self == .off ? nil : rawValue }
 

@@ -62,6 +62,9 @@ public struct Switchboard: Equatable, Sendable {
     public private(set) var friendTalking: Set<Int> = []
     /// Friends who muted you. Private: nothing on your board changes because of it.
     public private(set) var mutedYou: Set<Int> = []
+    /// Friends you muted, by friend id. Only changes what you hear: nothing is sent to them,
+    /// and it outlasts the call so they stay muted next time.
+    public private(set) var muted: Set<Int> = []
     /// Simulated replies: when each friend will talk back.
     public private(set) var replies: [Int: ClosedRange<TimeInterval>] = [:]
     public private(set) var buzzing: [Int: TimeInterval] = [:]
@@ -103,6 +106,13 @@ public struct Switchboard: Equatable, Sendable {
         if incoming[jack] != nil { return true }
         guard let c = cord(at: jack) else { return false }
         return patches[c]?.status == .open
+    }
+
+    /// When the line on a jack opened, if it's open.
+    public func openedAt(_ jack: Int) -> TimeInterval? {
+        if let since = incoming[jack] { return since }
+        guard let c = cord(at: jack), let p = patches[c], p.status == .open else { return nil }
+        return p.since
     }
 
     /// Jacks with an open line, cords first, then incoming.
@@ -327,6 +337,25 @@ public struct Switchboard: Equatable, Sendable {
         replies[jack] = now...(now + seconds)
     }
 
+    /// Mute or unmute a friend for yourself.
+    public mutating func mute(_ jack: Int, _ on: Bool) {
+        guard let f = friend(jack) else { return }
+        if on { muted.insert(f.id) } else { muted.remove(f.id) }
+    }
+
+    public mutating func setMutedFriends(_ ids: Set<Int>) {
+        muted = ids
+    }
+
+    public func isMuted(_ jack: Int) -> Bool {
+        friend(jack).map { muted.contains($0.id) } ?? false
+    }
+
+    /// Who you can hear talking right now: talking, on an open line, and not muted by you.
+    public func isHeard(_ jack: Int) -> Bool {
+        friendTalking.contains(jack) && isLineOpen(jack) && !isMuted(jack)
+    }
+
     public mutating func setMuted(by jack: Int, _ muted: Bool) {
         if muted { mutedYou.insert(jack) } else { mutedYou.remove(jack) }
     }
@@ -354,7 +383,7 @@ public struct Switchboard: Equatable, Sendable {
             a: patches[.a] != nil,
             b: patches[.b] != nil,
             tx: talking && !openJacks.isEmpty,
-            rx: openJacks.contains { friendTalking.contains($0) },
+            rx: openJacks.contains { isHeard($0) },
             dnd: doNotDisturb,
             effect: effect == .off ? nil : effect.title
         )
@@ -367,7 +396,7 @@ public struct Switchboard: Equatable, Sendable {
         let names = corded.map { name($0.patch.jack) } + incoming.keys.sorted().map(name)
         let big = names.isEmpty ? "READY TO PATCH" : names.joined(separator: " + ")
         let open = openJacks
-        let rx = open.filter { friendTalking.contains($0) }.map(name)
+        let rx = open.filter { isHeard($0) }.map(name)
         let held = corded.filter { $0.patch.status == .waitingDND }.map { name($0.patch.jack) }
 
         let sub: String
