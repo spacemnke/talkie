@@ -219,6 +219,74 @@ h1{font-size:clamp(32px,6.4vw,60px);font-weight:400;line-height:.95;margin:0;let
 .lg-line{background:var(--orange)}
 .hint{font-size:12px;margin:8px 0 0;max-width:60ch}
 
+/* the card file: punch, OUT tray and Rolodex */
+.cardwin{position:relative;z-index:2;margin-top:16px;container-type:inline-size}
+.cardbody{position:relative;display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1.1fr);gap:18px;align-items:start;padding:14px 14px 18px;background:var(--shell);--cw:196px;--ch:110px}
+@container (max-width:560px){.cardbody{grid-template-columns:minmax(0,1fr)}}
+.punch{position:relative;display:flex;flex-direction:column;min-width:0}
+.feed{display:grid;place-items:end center;height:calc(var(--ch) + 14px);padding-bottom:4px}
+.feed-guide{display:grid;place-items:center;width:var(--cw);max-width:100%;height:var(--ch);border:2px dashed var(--away);border-radius:4px 14px 4px 4px;font-size:10px;letter-spacing:.12em;color:var(--mute);transition:background .15s,border-color .15s}
+.feed.hot .feed-guide{border-color:var(--orange);background:var(--orange-glow);color:var(--ink)}
+.pdev{position:relative;z-index:5;display:grid;gap:10px;padding:0 12px 12px;background:var(--shell);border:2px solid var(--ink)}
+.slot{justify-self:center;width:calc(var(--cw) + 18px);max-width:100%;height:14px;margin-top:-8px;background:var(--lcd);border:2px solid var(--ink);border-radius:7px}
+.pdev-head{display:flex;justify-content:space-between;align-items:baseline;font-size:10px;letter-spacing:.12em}
+.pdev-head b{font-size:13px;letter-spacing:.08em}
+.lcd.pl .lcd-main{font-size:22px}
+.flag.blink{animation:flagblink .3s steps(1) infinite}
+@keyframes flagblink{50%{background:var(--orange);border-color:var(--orange);color:var(--lcd)}}
+.flag.err.on{background:var(--led-red);border-color:var(--led-red);color:var(--white)}
+.codeform{display:grid;gap:6px}
+.codeform .lbl{font-size:10px;letter-spacing:.12em}
+.code-row{display:grid;grid-template-columns:minmax(0,1fr) auto;gap:8px}
+#codeInput{min-width:0;width:100%;padding:9px 10px;background:var(--lcd);color:var(--lcd-fg);border:2px solid var(--ink);font-family:var(--font-display);font-weight:800;font-size:18px;letter-spacing:.12em;text-transform:uppercase}
+#codeInput::placeholder{color:var(--lcd-dim)}
+#codeInput:focus-visible{outline:2px solid var(--orange);outline-offset:2px}
+.code-row .key{min-height:44px;justify-content:center}
+.tries{display:flex;flex-wrap:wrap;align-items:center;gap:6px;font-size:10px;letter-spacing:.1em;color:var(--mute)}
+.tries button,.mycode button{padding:3px 7px;border:1.5px solid var(--ink);background:var(--white);font-size:10px;font-weight:700;letter-spacing:.08em;cursor:pointer}
+.tries button:focus-visible,.mycode button:focus-visible{outline:2px solid var(--orange);outline-offset:2px}
+.mycode{display:flex;flex-wrap:wrap;align-items:center;gap:8px;padding-top:8px;border-top:1.5px solid var(--soft);font-size:10px;letter-spacing:.1em}
+.mycode b{font-family:var(--font-display);font-size:14px;letter-spacing:.1em}
+.tray{position:relative;display:grid;place-items:center;height:calc(var(--ch) + 26px);margin-top:-2px;background:var(--soft);border:2px solid var(--ink);border-top:0}
+.tray-label{position:absolute;left:8px;top:6px;font-size:9px;letter-spacing:.14em;color:var(--mute)}
+.tray .lcard{animation:issue .5s ease-out}
+@keyframes issue{from{transform:translateY(-36px);opacity:0}to{transform:none;opacity:1}}
+
+.lcard{position:relative;flex:none;width:var(--cw);height:var(--ch);background:var(--plate);border:2px solid var(--ink);border-radius:4px 14px 4px 4px;box-shadow:3px 4px 0 var(--cable-shadow);overflow:hidden;color:var(--ink);cursor:grab;touch-action:none;user-select:none;-webkit-user-select:none;-webkit-touch-callout:none}
+.lc-band{position:absolute;left:0;right:0;top:0;height:7px;background:var(--orange);border-bottom:1.5px solid var(--ink)}
+.lc-kind{position:absolute;left:10px;top:13px;font-size:8px;letter-spacing:.14em;color:var(--mute)}
+.lc-name{position:absolute;left:10px;top:24px;font-size:26px;font-weight:300;line-height:1;letter-spacing:.02em}
+.lc-meta{position:absolute;left:10px;top:54px;font-size:8.5px;letter-spacing:.1em;color:var(--mute)}
+.lc-stamp{position:absolute;right:9px;top:15px;display:none;padding:2px 5px;border:1.5px solid var(--orange);color:var(--orange);font-size:9px;font-weight:700;letter-spacing:.1em;transform:rotate(6deg)}
+.lcard.onboard .lc-stamp{display:block}
+.lc-holes{position:absolute;left:10px;right:10px;bottom:14px;display:grid;grid-template-columns:repeat(14,minmax(0,1fr));gap:3px}
+.lc-holes i{height:6px;border:1px solid var(--away);border-radius:1px}
+.lc-holes i.p{background:var(--ink);border-color:var(--ink)}
+.lc-notch{position:absolute;bottom:-2px;width:20px;height:8px;background:var(--shell);border:2px solid var(--ink);border-bottom:0;border-radius:10px 10px 0 0}
+.lc-notch.l{left:27%}
+.lc-notch.r{right:27%}
+.lcard.ghost{position:absolute;left:0;top:0;z-index:30;pointer-events:none;box-shadow:9px 13px 0 var(--cable-shadow)}
+.lcard.ghost.feeding{z-index:4;box-shadow:none}
+.lcard.lifted{opacity:.25}
+.lcard:focus-visible{outline:2px solid var(--orange);outline-offset:3px}
+
+.rolo{display:grid;gap:10px;min-width:0}
+.rolo-head{display:flex;justify-content:space-between;align-items:baseline;font-size:10px;letter-spacing:.12em}
+.rolo-head b{font-size:13px;letter-spacing:.08em}
+.drum{position:relative;height:calc(var(--ch) + 56px)}
+.drum .lcard{position:absolute;left:50%;bottom:0;transform-origin:50% 100%;transition:transform .35s cubic-bezier(.3,.7,.3,1),filter .35s}
+.drum .lcard:not(.front){cursor:pointer;box-shadow:none}
+.rail{display:flex;align-items:center;gap:8px;margin-top:-4px}
+.rail-bar{flex:1;height:12px;background:var(--key);border:2px solid var(--ink);border-radius:6px}
+.rknob{flex:none;width:34px;height:34px;border-radius:50%;border:2px solid var(--ink);background:var(--white);font-size:18px;line-height:1;cursor:pointer;box-shadow:0 3px 0 var(--ink)}
+.rknob:active{transform:translateY(3px);box-shadow:none}
+.rknob:focus-visible{outline:2px solid var(--orange);outline-offset:2px}
+.rolo-foot{display:grid;grid-template-columns:minmax(0,1fr) auto;gap:10px;align-items:center}
+.rolo-hint{margin:0;font-size:11px;line-height:1.35}
+.rolo-foot .key{width:96px;min-height:58px}
+.jack.arrive .jlabel{animation:arrive 1s ease-out}
+@keyframes arrive{0%,40%{background:var(--orange);color:var(--white)}}
+
 /* the friend's Mac */
 .mac{border:2px solid var(--ink);background:var(--paper);background-image:radial-gradient(circle,var(--soft) 1.2px,transparent 1.6px);background-size:14px 14px;user-select:none;-webkit-user-select:none;-webkit-touch-callout:none}
 .menubar{display:flex;align-items:center;justify-content:flex-end;gap:14px;height:30px;padding:0 12px;background:var(--plate);border-bottom:2px solid var(--ink);font-size:12px;font-weight:600;letter-spacing:.06em}
@@ -431,6 +499,42 @@ button.mb-icon:focus-visible{outline:2px solid var(--ink);outline-offset:2px}
           </div>
         </div>
           </div>
+          <div class="dwin cardwin" id="cardwin">
+            <div class="dwin-bar"><i></i><i></i><i></i><span>Card file</span></div>
+            <div class="cardbody" id="cardbody">
+              <div class="punch">
+                <div class="feed" id="feed"><div class="feed-guide">Drop a card here</div></div>
+                <div class="pdev" id="pdev">
+                  <span class="slot" id="slot" aria-hidden="true"></span>
+                  <div class="pdev-head"><b>Card punch</b><span>Reads line cards</span></div>
+                  <div class="lcd sm pl" role="status" aria-live="polite">
+                    <div class="lcd-main" id="pBig">INSERT CARD</div>
+                    <div class="lcd-sub" id="pSub">OR CHECK A CODE</div>
+                    <div class="lcd-flags" aria-hidden="true"><span class="flag" id="lRead">READ</span><span class="flag" id="lOk">OK</span><span class="flag err" id="lErr">ERR</span></div>
+                  </div>
+                  <form class="codeform" id="codeForm" autocomplete="off">
+                    <label class="lbl" for="codeInput">A friend's code</label>
+                    <div class="code-row">
+                      <input id="codeInput" name="code" maxlength="9" placeholder="TLK-····" spellcheck="false" autocapitalize="characters">
+                      <button class="key key-talk" type="submit"><span class="k-top">Check</span></button>
+                    </div>
+                    <div class="tries">Try <button type="button" data-code="TLK-ZOE7">TLK-ZOE7</button><button type="button" data-code="TLK-PIP3">TLK-PIP3</button><button type="button" data-code="TLK-0000">TLK-0000</button></div>
+                  </form>
+                  <div class="mycode"><span>Your code</span><b id="myCode">TLK-7Q4F</b><button type="button" id="copyCode">Copy</button></div>
+                </div>
+                <div class="tray" id="tray"><span class="tray-label">Out</span></div>
+              </div>
+              <div class="rolo">
+                <div class="rolo-head"><b>Rolodex</b><span id="roloCount">01 / 10</span></div>
+                <div class="drum" id="drum"></div>
+                <div class="rail"><button class="rknob" id="roloPrev" type="button" aria-label="Previous card">‹</button><span class="rail-bar"></span><button class="rknob" id="roloNext" type="button" aria-label="Next card">›</button></div>
+                <div class="rolo-foot">
+                  <p class="rolo-hint" id="roloHint"></p>
+                  <button class="key key-plain" id="ejectBtn" type="button"><span class="k-top">Eject<i class="led"></i></span><small>Free the jack</small></button>
+                </div>
+              </div>
+            </div>
+          </div>
         </div>
         <div class="flayer" id="flayer">
           <svg class="fcord" id="fcord" aria-hidden="true"><path class="o"/><path class="c"/></svg>
@@ -473,7 +577,7 @@ button.mb-icon:focus-visible{outline:2px solid var(--ink);outline-offset:2px}
         <li><i class="lg lg-dnd"></i>Do not disturb</li>
         <li><i class="lg lg-line"></i>Line open</li>
       </ul>
-      <p class="hint">Drag a plug into a friend's jack, or tap a plug to pull it out. When a line opens, the mic drops onto the desktop and floats over every window. Hold it (or space) to talk, drag or fling it anywhere, and press its orange key for effects. The Talkie icon in the menu bar puts it away; pull every plug and it winds back up on its own. Ruby is on do not disturb: patch her, then switch it off on her side.</p>
+      <p class="hint">Drag a plug into a friend's jack, or tap a plug to pull it out. When a line opens, the mic drops onto the desktop and floats over every window: hold it (or space) to talk, drag or fling it anywhere. To add a friend, check their code in the card file (try TLK-ZOE7), then drag the line card into the punch. Ruby is on do not disturb: patch her, then switch it off on her side.</p>
     </div>
 
     <div>
@@ -630,11 +734,14 @@ button.mb-icon:focus-visible{outline:2px solid var(--ink);outline-offset:2px}
 
   <section class="sec">
     <h2 class="chbar"><span>4</span>Decisions so far</h2>
-    <p class="chnote">Three settled, two still open.</p>
+    <p class="chnote">Five settled, three still open.</p>
     <div class="decide">
       <div class="q"><h3>Instant line</h3><p>A patch opens the line straight away. That's what sets Talkie apart. Do not disturb holds patches until you're back.</p><span class="tag done">Decided</span></div>
       <div class="q"><h3>Both talk at once</h3><p>Full duplex, like a phone call. Nobody waits for "over".</p><span class="tag done">Decided</span></div>
       <div class="q"><h3>Mute is private</h3><p>When Maya mutes you, your board doesn't show it. Her lamp looks the same either way.</p><span class="tag done">Decided</span></div>
+      <div class="q"><h3>Eight friends</h3><p>A board has eight jacks. Everyone you have ever added keeps a line card in your Rolodex, so you can eject someone and punch an old card back in.</p><span class="tag done">Decided</span></div>
+      <div class="q"><h3>Adding friends</h3><p>A friend sends you their code. Check it in the card file, take the line card it issues, and punch it to put them on your board. Each code works once.</p><span class="tag done">Decided</span></div>
+      <div class="q"><h3>Ejected means unreachable?</h3><p>If only the eight people on your board can patch into you, ejecting someone also stops them reaching you, without telling them. The prototype assumes yes.</p><span class="tag open">Open</span></div>
       <div class="q"><h3>Hear yourself?</h3><p>Hearing your own Machine voice is half the fun of effects, but through speakers it can feed back into the mic. Maybe headphones only.</p><span class="tag open">Open</span></div>
       <div class="q"><h3>iPhone too?</h3><p>iOS has Apple's Push to Talk framework, which can deliver a friend's voice while the phone is locked. The Mac app comes first either way.</p><span class="tag open">Open</span></div>
     </div>
@@ -658,16 +765,27 @@ button.mb-icon:focus-visible{outline:2px solid var(--ink);outline-offset:2px}
   const INVITE = "TLK-7Q4F";
   const FX = ["OFF", "CANYON", "TIN CAN", "HELIUM", "MACHINE"];
   const FXDESC = ["CLEAN VOICE", "COMES BACK TWICE", "THIN AND CRUNCHY", "AN OCTAVE UP", "RING-MODULATED"];
-  const friends = [
-    { name: "MAYA", online: true, f0: 215 },
-    { name: "OTTO", online: true, f0: 104 },
-    { name: "JUN", online: false, f0: 140 },
-    { name: "RUBY", online: true, dnd: true, f0: 238 },
-    { name: "LEO", online: false, f0: 120 },
-    { name: "INÈS", online: true, f0: 200 },
-    { name: "KAI", online: true, f0: 132 },
-    null
-  ].map(f => f && Object.assign({ dnd: false }, f, { mutedYou: false, talking: false, held: false, buzzUntil: 0, t1: 0, t2: 0 }));
+  // Everyone you've ever added has a line card in the Rolodex. Up to eight of them are on the board.
+  const CARDS = [
+    { name: "MAYA", online: true, f0: 215, added: "12 MAR", jack: 0 },
+    { name: "OTTO", online: true, f0: 104, added: "30 MAR", jack: 1 },
+    { name: "JUN", online: false, f0: 140, added: "04 APR", jack: 2 },
+    { name: "RUBY", online: true, dnd: true, f0: 238, added: "21 APR", jack: 3 },
+    { name: "LEO", online: false, f0: 120, added: "09 JUN", jack: 4 },
+    { name: "INÈS", online: true, f0: 200, added: "15 AUG", jack: 5 },
+    { name: "KAI", online: true, f0: 132, added: "02 SEP", jack: 6 },
+    { name: "NICO", online: true, f0: 125, added: "02 MAY", jack: null },
+    { name: "BEA", online: false, f0: 205, added: "19 JAN", jack: null },
+    { name: "TOM", online: true, f0: 112, added: "07 JUL", jack: null }
+  ].map((c, i) => Object.assign({ id: i + 1, dnd: false }, c));
+  const friendFrom = card => ({
+    name: card.name, online: card.online, dnd: card.dnd, f0: card.f0, card,
+    mutedYou: false, talking: false, held: false, buzzUntil: 0, t1: 0, t2: 0
+  });
+  const friends = Array.from({ length: 8 }, (_, i) => {
+    const card = CARDS.find(c => c.jack === i);
+    return card ? friendFrom(card) : null;
+  });
 
   const reduce = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
   const $ = s => document.querySelector(s);
@@ -899,6 +1017,11 @@ button.mb-icon:focus-visible{outline:2px solid var(--ink);outline-offset:2px}
     over() { hiss(0.12, 0.22, 1800, 0.6, 0, A.radio); tone(1250, 0.06, 0.05, "square", 0.13, null, A.radio); tone(940, 0.09, 0.05, "square", 0.2, null, A.radio); },
     buzz() { for (let i = 0; i < 6; i++) tone(i % 2 ? 1480 : 1040, 0.085, 0.06, "square", i * 0.1, null, A.radio); },
     deny() { tone(200, 0.14, 0.08, "square"); },
+    cardIn() { hiss(0.3, 0.22, 700, 0.6); tone(150, 0.25, 0.2, "sine", 0, 80); },
+    chunk() { hiss(0.025, 0.45, 2600, 1.4); tone(110, 0.035, 0.25, "square"); },
+    accept() { tone(1046, 0.07, 0.05, "square"); tone(1568, 0.12, 0.05, "square", 0.08); },
+    print() { for (let i = 0; i < 5; i++) hiss(0.02, 0.3, 3000, 1.5, i * 0.07); },
+    flip() { hiss(0.04, 0.2, 4000, 1.2); },
     drop() { tone(900, 0.24, 0.05, "sine", 0, 220); hiss(0.08, 0.12, 2200, 0.8); tone(140, 0.12, 0.25, "sine", 0.2, 70); },
     stow() { tone(220, 0.2, 0.05, "sine", 0, 950); hiss(0.05, 0.1, 3000, 1, 0.16); }
   };
@@ -994,7 +1117,7 @@ button.mb-icon:focus-visible{outline:2px solid var(--ink);outline-offset:2px}
   }
   function patch(c, j, fromDrag) {
     const f = friends[j];
-    if (!f) { flash("+ ADD", "INVITE CODE " + INVITE); sfx.deny(); return false; }
+    if (!f) { flash("FREE JACK", "ADD A FRIEND IN THE CARD FILE"); sfx.deny(); return false; }
     const other = cordFor(j);
     if (other && other !== c) { flash("BUSY", "CORD " + other.id + " IS IN " + f.name); sfx.deny(); return false; }
     c.jack = j; c.since = performance.now();
@@ -1173,7 +1296,9 @@ button.mb-icon:focus-visible{outline:2px solid var(--ink);outline-offset:2px}
     });
 
     // the friend's side
+    if (!friends[state.view]) state.view = Math.max(0, friends.findIndex(Boolean));
     const v = state.view, f = friends[v], c = cordFor(v);
+    if (!f) { syncVoices(); return; }
     setText(el.rName, possessive(f.name) + " MAC");
     setText(el.owner, possessive(f.name) + " BOARD");
     let rb, rs, status, st = "off", live = false;
@@ -1332,7 +1457,7 @@ button.mb-icon:focus-visible{outline:2px solid var(--ink);outline-offset:2px}
   jacks.forEach((b, i) => b.addEventListener("click", () => {
     const c = cordFor(i);
     if (c) { unpatch(c); return; }
-    if (!friends[i]) { flash("+ ADD", "INVITE CODE " + INVITE); sfx.deny(); return; }
+    if (!friends[i]) { openCardFile(); return; }
     const free = cords.find(k => k.jack == null && !k.dragging);
     if (!free) { flash("NO CORD", "PULL A PLUG FIRST"); sfx.deny(); return; }
     raise(free);
@@ -1376,6 +1501,7 @@ button.mb-icon:focus-visible{outline:2px solid var(--ink);outline-offset:2px}
     const j = state.view, f = friends[j];
     if (!f || !f.online) return;
     f.dnd = !f.dnd;
+    f.card.dnd = f.dnd;
     const c = cordFor(j);
     if (c) {
       if (f.dnd) { stopFriend(f); f.mutedYou = false; c.token++; c.status = "dnd"; sfx.close(); }
@@ -1436,6 +1562,364 @@ button.mb-icon:focus-visible{outline:2px solid var(--ink);outline-offset:2px}
     if (e.target === rTalk) rTalkStop(); else txStop();
   });
   window.addEventListener("blur", () => { txStop(); rTalkStop(); });
+
+  /* ---------- the card file: codes, line cards, the punch and the Rolodex ---------- */
+  const MY_CODE = "TLK-7Q4F";
+  // Stand-in for the server: codes your friends could have sent you.
+  const CODEBOOK = {
+    "TLK-ZOE7": { name: "ZOE", online: true, f0: 228 },
+    "TLK-PIP3": { name: "PIP", online: true, f0: 160 }
+  };
+  const MONTHS = ["JAN", "FEB", "MAR", "APR", "MAY", "JUN", "JUL", "AUG", "SEP", "OCT", "NOV", "DEC"];
+  const pad2 = n => String(n).padStart(2, "0");
+  const wait = ms => new Promise(r => setTimeout(r, reduce ? Math.min(ms, 60) : ms));
+  const cardbody = $("#cardbody"), feed = $("#feed"), drum = $("#drum"), tray = $("#tray");
+  const codeForm = $("#codeForm"), codeInput = $("#codeInput"), ejectBtn = $("#ejectBtn");
+  const pBig = $("#pBig"), pSub = $("#pSub"), lamps = { read: $("#lRead"), ok: $("#lOk"), err: $("#lErr") };
+  const usedCodes = new Set();
+  const file = CARDS.slice();
+  let front = 0, nextId = CARDS.length + 1, issued = null, busy = false, cardDrag = null, idleTimer = 0;
+
+  function punchSay(big, sub) {
+    clearTimeout(idleTimer);
+    setText(pBig, big); setText(pSub, sub);
+  }
+  function punchIdleLater(ms) {
+    clearTimeout(idleTimer);
+    idleTimer = setTimeout(() => {
+      Object.values(lamps).forEach(l => l.classList.remove("on", "blink"));
+      punchSay(issued ? "CARD READY" : "INSERT CARD", issued ? "DRAG IT TO THE SLOT" : "OR CHECK A CODE");
+    }, ms);
+  }
+  function lamp(name, mode) {
+    const l = lamps[name];
+    l.classList.toggle("on", mode === "on");
+    l.classList.toggle("blink", mode === "blink");
+  }
+
+  // Every card gets its own hole pattern, from its name: a little fingerprint.
+  function holesFor(name) {
+    let h = 2166136261;
+    for (const ch of name) { h ^= ch.charCodeAt(0); h = Math.imul(h, 16777619); }
+    const g = Math.imul(h ^ (h >>> 15), 2246822507);
+    return Array.from({ length: 28 }, (_, i) => ((i < 14 ? h : g) >>> (i % 14 * 2)) & 1);
+  }
+  function makeCardEl(card) {
+    const el = document.createElement("div");
+    el.className = "lcard";
+    el.innerHTML = '<span class="lc-band"></span><span class="lc-kind">Line card</span><b class="lc-name"></b>' +
+      '<span class="lc-meta"></span><span class="lc-stamp"></span><span class="lc-holes">' + "<i></i>".repeat(28) + "</span>" +
+      '<span class="lc-notch l"></span><span class="lc-notch r"></span>';
+    fillCardEl(el, card);
+    return el;
+  }
+  function fillCardEl(el, card) {
+    setText(el.querySelector(".lc-name"), card.name);
+    setText(el.querySelector(".lc-meta"), "Added " + card.added + (card.code ? " · " + card.code : ""));
+    setText(el.querySelector(".lc-stamp"), card.jack != null ? "JACK " + pad2(card.jack + 1) : "");
+    el.classList.toggle("onboard", card.jack != null);
+    const bits = holesFor(card.name);
+    el.querySelectorAll(".lc-holes i").forEach((h, i) => h.classList.toggle("p", !!bits[i]));
+    el.setAttribute("aria-label", "Line card: " + card.name + (card.jack != null ? ", on jack " + (card.jack + 1) : ", in the file"));
+  }
+
+  // The Rolodex: the front card is whole, the next three peek up behind it.
+  const drumEls = new Map();
+  function renderFile() {
+    const n = file.length;
+    front = ((front % n) + n) % n;
+    file.forEach((card, idx) => {
+      let el = drumEls.get(card.id);
+      if (!el) {
+        el = makeCardEl(card);
+        el.tabIndex = -1;
+        drum.appendChild(el);
+        drumEls.set(card.id, el);
+        attachCardDrag(el, card, "file");
+      }
+      fillCardEl(el, card);
+      const k = (idx - front + n) % n;
+      el.classList.toggle("front", k === 0);
+      el.tabIndex = k === 0 ? 0 : -1;
+      el.style.zIndex = String(10 - Math.min(k, 9));
+      el.style.visibility = k > 3 ? "hidden" : "visible";
+      el.style.filter = "brightness(" + (1 - Math.min(k, 3) * 0.07) + ")";
+      el.style.transform = "translateX(-50%) translateY(" + (-k * 15) + "px) scale(" + (1 - Math.min(k, 3) * 0.045) + ")";
+    });
+    const card = file[front];
+    setText($("#roloCount"), pad2(front + 1) + " / " + pad2(n));
+    setText($("#roloHint"), card.jack != null
+      ? card.name + " is on jack " + pad2(card.jack + 1) + ". Eject frees the jack; the card stays here."
+      : "Drag " + card.name + "'s card into the punch to put them back on your board.");
+    ejectBtn.disabled = card.jack == null;
+  }
+  function turn(step) {
+    if (busy && cardDrag) return;
+    front += step;
+    renderFile();
+    sfx.flip();
+  }
+  $("#roloPrev").addEventListener("click", () => turn(-1));
+  $("#roloNext").addEventListener("click", () => turn(1));
+  let wheelAt = 0;
+  drum.addEventListener("wheel", e => {
+    e.preventDefault();
+    const t = performance.now();
+    if (t - wheelAt < 120 || Math.abs(e.deltaY) < 4) return;
+    wheelAt = t;
+    turn(e.deltaY > 0 ? 1 : -1);
+  }, { passive: false });
+  drum.addEventListener("keydown", e => {
+    if (e.key === "ArrowLeft" || e.key === "ArrowUp") { e.preventDefault(); turn(-1); }
+    if (e.key === "ArrowRight" || e.key === "ArrowDown") { e.preventDefault(); turn(1); }
+  });
+
+  // Dragging a card: a ghost follows the pointer; drop it on the feed above the punch.
+  function bodyPoint(x, y) { const r = cardbody.getBoundingClientRect(); return { x: x - r.left, y: y - r.top }; }
+  function rectIn(el) {
+    const r = el.getBoundingClientRect(), b = cardbody.getBoundingClientRect();
+    return { x: r.left - b.left, y: r.top - b.top, w: r.width, h: r.height };
+  }
+  function place(el, x, y) { el.style.transform = "translate(" + x.toFixed(1) + "px," + y.toFixed(1) + "px)"; }
+  function ghostFor(el, card) {
+    const g = makeCardEl(card);
+    g.classList.add("ghost");
+    cardbody.appendChild(g);
+    const r = rectIn(el);
+    g._home = { x: r.x, y: r.y };
+    place(g, r.x, r.y);
+    el.classList.add("lifted");
+    return g;
+  }
+  function overFeed(g) {
+    const gr = g.getBoundingClientRect(), fr = feed.getBoundingClientRect();
+    const cx = gr.left + gr.width / 2, cy = gr.top + gr.height / 2;
+    return cx > fr.left - 30 && cx < fr.right + 30 && cy > fr.top - 40 && cy < fr.bottom + 30;
+  }
+  function attachCardDrag(el, card, source) {
+    el.addEventListener("pointerdown", e => {
+      if (e.button || busy) return;
+      if (source === "file" && !el.classList.contains("front")) {
+        front = file.indexOf(card);
+        renderFile();
+        sfx.flip();
+        return;
+      }
+      e.preventDefault();
+      el.setPointerCapture(e.pointerId);
+      const r = el.getBoundingClientRect();
+      cardDrag = { el, card, source, id: e.pointerId, sx: e.clientX, sy: e.clientY, ox: e.clientX - r.left, oy: e.clientY - r.top, moved: false, ghost: ghostFor(el, card) };
+    });
+    el.addEventListener("pointermove", e => {
+      const d = cardDrag;
+      if (!d || d.el !== el || e.pointerId !== d.id) return;
+      if (!d.moved && Math.hypot(e.clientX - d.sx, e.clientY - d.sy) > 4) d.moved = true;
+      const p = bodyPoint(e.clientX - d.ox, e.clientY - d.oy);
+      place(d.ghost, p.x, p.y);
+      feed.classList.toggle("hot", overFeed(d.ghost));
+    });
+    const end = (e, cancelled) => {
+      const d = cardDrag;
+      if (!d || d.el !== el || e.pointerId !== d.id) return;
+      cardDrag = null;
+      feed.classList.remove("hot");
+      // Dropping on the feed punches it. A plain tap on the card in the OUT tray does too.
+      if (!cancelled && (overFeed(d.ghost) || (!d.moved && source === "tray"))) feedCard(d);
+      else returnCard(d);
+    };
+    el.addEventListener("pointerup", e => end(e, false));
+    el.addEventListener("pointercancel", e => end(e, true));
+    el.addEventListener("keydown", e => {
+      if ((e.key === "Enter" || e.key === " ") && !busy && (source === "tray" || el.classList.contains("front"))) {
+        e.preventDefault();
+        feedCard({ el, card, source, ghost: ghostFor(el, card) });
+      }
+    });
+  }
+  async function returnCard(d) {
+    d.ghost.style.transition = "transform .25s ease-out";
+    place(d.ghost, d.ghost._home.x, d.ghost._home.y);
+    await wait(260);
+    d.ghost.remove();
+    d.el.classList.remove("lifted");
+  }
+
+  // The punch: the card slides in, gets read, and either joins the board or comes back out.
+  async function feedCard(d) {
+    busy = true;
+    const g = d.ghost, card = d.card;
+    const fr = rectIn(feed), w = g.offsetWidth, h = g.offsetHeight;
+    const x = fr.x + fr.w / 2 - w / 2, y = fr.y + fr.h - h - 4;
+    g.style.transition = "transform .18s ease-out";
+    place(g, x, y);
+    await wait(200);
+    g.classList.add("feeding");
+    g.style.transition = "transform .55s cubic-bezier(.5,0,.8,.4)";
+    place(g, x, y + h + 12);
+    sfx.cardIn();
+    lamp("read", "blink");
+    punchSay("READING", "▯▯▯▯▯▯▯▯");
+    await wait(560);
+    for (let i = 1; i <= 8; i++) {
+      setText(pSub, "▮".repeat(i) + "▯".repeat(8 - i) + "  " + card.name);
+      sfx.chunk();
+      await wait(140);
+    }
+    lamp("read", "off");
+
+    const freeJack = friends.findIndex(f => !f);
+    let problem = null;
+    if (card.jack != null) problem = ["ON BOARD", "ALREADY ON JACK " + pad2(card.jack + 1)];
+    else if (freeJack < 0) problem = ["BOARD FULL", "EJECT SOMEONE FIRST"];
+
+    // Back up out of the slot either way.
+    g.style.transition = "transform .35s ease-out";
+    place(g, x, y);
+    await wait(360);
+    g.classList.remove("feeding");
+
+    if (problem) {
+      lamp("err", "on");
+      punchSay(problem[0], problem[1]);
+      sfx.deny();
+      await returnCard(d);
+      punchIdleLater(2400);
+      busy = false;
+      return;
+    }
+
+    lamp("ok", "on");
+    punchSay("ACCEPTED", card.name + " · JACK " + pad2(freeJack + 1));
+    sfx.accept();
+    addToBoard(card, freeJack);
+    if (d.source === "tray") {
+      issued = null;
+      d.el.remove();
+      file.splice(front, 0, card);
+    } else {
+      front = file.indexOf(card);
+    }
+    // File the card: it flies into the Rolodex.
+    const dr = rectIn(drum);
+    g.style.transition = "transform .45s cubic-bezier(.3,.7,.3,1), opacity .45s";
+    place(g, dr.x + dr.w / 2 - w / 2, dr.y + dr.h - h);
+    await wait(460);
+    g.remove();
+    d.el.classList.remove("lifted");
+    renderFile();
+    punchIdleLater(2600);
+    busy = false;
+  }
+
+  // Codes: check one and the punch issues that friend's line card into the OUT tray.
+  codeForm.addEventListener("submit", async e => {
+    e.preventDefault();
+    if (busy) return;
+    let raw = codeInput.value.toUpperCase().replace(/[^A-Z0-9]/g, "");
+    if (raw.startsWith("TLK")) raw = raw.slice(3);
+    if (!raw) { punchSay("ENTER A CODE", "LIKE TLK-ZOE7"); lamp("err", "on"); sfx.deny(); punchIdleLater(1800); return; }
+    const code = "TLK-" + raw.slice(0, 4);
+    if (issued) { punchSay("TAKE YOUR CARD", "IT'S IN THE OUT TRAY"); sfx.deny(); punchIdleLater(2000); return; }
+    busy = true;
+    lamp("read", "blink");
+    punchSay("CHECKING", code);
+    sfx.key();
+    await wait(900);
+    lamp("read", "off");
+    const known = CODEBOOK[code];
+    if (code === MY_CODE || usedCodes.has(code) || !known) {
+      lamp("err", "on");
+      if (code === MY_CODE) punchSay("YOUR OWN CODE", "SEND IT TO A FRIEND");
+      else if (usedCodes.has(code)) punchSay("ALREADY USED", "EACH CODE WORKS ONCE");
+      else punchSay("UNKNOWN CODE", "CHECK IT AND TRY AGAIN");
+      sfx.deny();
+      punchIdleLater(2200);
+      busy = false;
+      return;
+    }
+    usedCodes.add(code);
+    const now = new Date();
+    const card = Object.assign({ id: nextId++, dnd: false, jack: null, code, added: pad2(now.getDate()) + " " + MONTHS[now.getMonth()] }, known);
+    issued = card;
+    const el = makeCardEl(card);
+    el.tabIndex = 0;
+    tray.appendChild(el);
+    attachCardDrag(el, card, "tray");
+    codeInput.value = "";
+    lamp("ok", "on");
+    punchSay("CARD ISSUED", "DRAG IT TO THE SLOT");
+    sfx.print();
+    punchIdleLater(2600);
+    busy = false;
+  });
+  document.querySelectorAll(".tries button").forEach(b => b.addEventListener("click", () => {
+    codeInput.value = b.dataset.code;
+    codeInput.focus();
+  }));
+  $("#copyCode").addEventListener("click", () => {
+    const done = () => { punchSay("COPIED", "SEND IT TO A FRIEND"); punchIdleLater(1800); };
+    try {
+      navigator.clipboard.writeText(MY_CODE).then(done, () => { getSelection().selectAllChildren($("#myCode")); done(); });
+    } catch (err) {
+      getSelection().selectAllChildren($("#myCode"));
+      done();
+    }
+  });
+  ejectBtn.addEventListener("click", () => {
+    const card = file[front];
+    if (busy || card.jack == null) return;
+    const j = card.jack;
+    removeFromBoard(j);
+    lamp("err", "off");
+    punchSay("EJECTED", card.name + " · JACK " + pad2(j + 1) + " IS FREE");
+    punchIdleLater(2200);
+    renderFile();
+  });
+
+  // The board side of it.
+  function paintJack(i) {
+    const f = friends[i], b = jacks[i];
+    b.classList.toggle("free", !f);
+    b.classList.toggle("online", !!f && f.online);
+    b.classList.toggle("away", !!f && !f.online);
+    setText(b.querySelector(".jname"), f ? f.name : "+ ADD");
+    if (!f) {
+      b.classList.remove("dnd");
+      b.dataset.lamp = "off";
+      b.setAttribute("aria-label", "Jack " + (i + 1) + ": free, add a friend in the card file");
+    }
+  }
+  function addToBoard(card, j) {
+    friends[j] = friendFrom(card);
+    card.jack = j;
+    paintJack(j);
+    const b = jacks[j];
+    b.classList.remove("arrive");
+    void b.offsetWidth;
+    b.classList.add("arrive");
+    setTimeout(() => b.classList.remove("arrive"), 1100);
+    flash(card.name, "NEW ON JACK " + pad2(j + 1));
+    sfx.plug();
+    render();
+  }
+  function removeFromBoard(j) {
+    const c = cordFor(j);
+    if (c) unpatch(c);
+    const f = friends[j];
+    if (f) { stopFriend(f); f.card.jack = null; }
+    friends[j] = null;
+    paintJack(j);
+    flash("JACK " + pad2(j + 1), "FREE · " + (f ? f.name + " IS IN THE ROLODEX" : ""));
+    sfx.unplug();
+    render();
+  }
+  function openCardFile() {
+    $("#cardwin").scrollIntoView({ behavior: reduce ? "auto" : "smooth", block: "center" });
+    setTimeout(() => codeInput.focus({ preventScroll: true }), reduce ? 0 : 450);
+    punchSay("FREE JACK " + pad2(friends.findIndex(f => !f) + 1), "CHECK A CODE");
+    punchIdleLater(3000);
+  }
+  renderFile();
 
   /* ---------- the floating mic ---------- */
   const desk = $("#desktop"), flayer = $("#flayer"), fmic = $("#fmic"), samIcon = $("#samIcon");
