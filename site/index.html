@@ -1,0 +1,824 @@
+<!doctype html>
+<html lang="en">
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<style>[hidden]{display:none!important}body{margin:0}</style>
+<title>Talkie for Mac</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Atkinson+Hyperlegible:wght@400;700&family=Doto:wght@600;800&family=Jura:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+<style>
+/* Layout: a hardware manual's front page. Nameplate masthead, the device itself as the hero, then chapters and a spec sheet. */
+/* One deliberate look in every theme: the light grey hardware the app is made of. */
+:root{
+  --paper:#f1f1ef;
+  --shell:#d3d4d4;
+  --plate:#e7e4dd;
+  --soft:#dcdcda;
+  --white:#fbfbf9;
+  --ink:#1b1b1b;
+  --mute:#5f5f5c;
+  --orange:#e0663a;
+  --orange-ink:#b8461e;
+  --orange-glow:rgba(224,102,58,.35);
+  --slate:#8b96a3;
+  --key:#242424;
+  --lcd:#131313;
+  --lcd-fg:#f1ede3;
+  --lcd-dim:#3a3a37;
+  --grille-mic:#7d858d;
+  --dot-ring:#4c535a;
+  --pill:#9aa1a8;
+  --led-off:#8a9299;
+  --lamp-off:#b5b6b6;
+  --plug-shadow:#a7a8a9;
+  --away:#a9a9a6;
+  --shadow:rgba(27,27,27,.16);
+  --font-display:"Jura","Avenir Next","Helvetica Neue",Arial,sans-serif;
+  --font-body:"Atkinson Hyperlegible","Avenir Next","Helvetica Neue",Arial,sans-serif;
+  --font-lcd:"Doto","Courier New",monospace;
+  color-scheme:light;
+}
+*{box-sizing:border-box}
+html{scroll-behavior:smooth}
+@media (prefers-reduced-motion: reduce){html{scroll-behavior:auto}}
+body{background:var(--paper);color:var(--ink);font-family:var(--font-body);font-size:17px;line-height:1.55}
+a{color:inherit}
+button{font:inherit;color:inherit}
+:focus-visible{outline:2px solid var(--orange);outline-offset:3px}
+
+.page{max-width:1120px;margin:0 auto;padding-inline:clamp(16px,4vw,40px);padding-block:0 40px;overflow-x:clip}
+.label{font-family:var(--font-display);font-weight:600;font-size:12px;letter-spacing:.14em;text-transform:uppercase}
+h1,h2,h3{font-family:var(--font-display);font-weight:300;text-transform:uppercase;text-wrap:balance;margin:0}
+h2{font-size:clamp(30px,4.4vw,48px);line-height:.98;letter-spacing:.01em}
+h3{font-size:22px;font-weight:500;letter-spacing:.04em}
+p{margin:0;max-width:62ch}
+
+/* masthead: the nameplate */
+.mast{display:flex;flex-wrap:wrap;align-items:center;justify-content:space-between;gap:12px 24px;padding-block:20px 16px;border-bottom:2px solid var(--ink)}
+.brand{display:flex;align-items:center;gap:14px;text-decoration:none}
+.brand-jack{width:30px;height:30px;border-radius:50%;border:2px solid var(--ink);background:var(--white);display:grid;place-items:center}
+.brand-jack::after{content:"";width:11px;height:11px;border-radius:50%;background:var(--orange);box-shadow:0 0 0 2px var(--ink)}
+.brand b{display:block;font-family:var(--font-display);font-weight:300;font-size:30px;line-height:.9;letter-spacing:.02em}
+.brand small{display:block;font-family:var(--font-display);font-weight:600;font-size:10.5px;letter-spacing:.16em;color:var(--orange-ink);margin-top:4px}
+.nav{display:flex;flex-wrap:wrap;align-items:center;gap:6px 20px}
+.nav a{font-family:var(--font-display);font-weight:600;font-size:12px;letter-spacing:.14em;text-transform:uppercase;text-decoration:none;padding-block:6px}
+.nav a:hover{color:var(--orange-ink)}
+.nav .key{padding:8px 12px}
+
+/* hardware keys */
+.key{position:relative;display:inline-flex;align-items:center;justify-content:center;gap:10px;padding:12px 18px;border:2px solid var(--ink);box-shadow:0 4px 0 var(--ink);background:var(--white);font-family:var(--font-display);font-weight:700;font-size:14px;letter-spacing:.1em;text-transform:uppercase;text-decoration:none;cursor:pointer;user-select:none;-webkit-user-select:none;-webkit-tap-highlight-color:transparent;transition:transform .05s,box-shadow .05s}
+.key:active,.key.down{transform:translateY(4px);box-shadow:0 0 0 var(--ink)}
+.key-orange{background:var(--orange);color:var(--white)}
+.key .led{flex:none;width:9px;height:9px;border-radius:50%;border:1.5px solid var(--ink);background:var(--lamp-off)}
+.key.lit .led{background:var(--orange)}
+.key-orange .led{background:var(--white)}
+
+/* hero */
+.hero{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,440px);gap:40px clamp(28px,5vw,72px);align-items:center;padding-block:clamp(36px,6vw,72px) clamp(40px,6vw,72px);border-bottom:2px solid var(--ink)}
+.hero-copy{display:grid;gap:22px;align-content:center}
+.hero h1{font-size:clamp(46px,7.6vw,96px);line-height:.88;letter-spacing:-.005em}
+.hero h1 span{display:block;color:var(--orange-ink)}
+.lede{font-size:clamp(17px,1.6vw,19px)}
+.cta{display:flex;flex-wrap:wrap;align-items:center;gap:14px 20px;margin-top:4px}
+.cta .key{font-size:15px;padding:15px 22px}
+.cta-meta{font-family:var(--font-display);font-weight:600;font-size:12px;letter-spacing:.1em;text-transform:uppercase;color:var(--mute);line-height:1.5}
+.try{display:grid;gap:12px;justify-items:stretch;min-width:0}
+.try-hint{font-family:var(--font-display);font-weight:600;font-size:12px;letter-spacing:.1em;text-transform:uppercase;color:var(--mute);text-align:center}
+
+/* the mini switchboard */
+.board{position:relative;background:var(--shell);border:2px solid var(--ink);border-radius:12px;box-shadow:6px 8px 0 var(--shadow);font-family:var(--font-display);font-weight:500;text-transform:uppercase;user-select:none;-webkit-user-select:none}
+.board > :first-child{border-radius:10px 10px 0 0}
+.strip{display:flex;height:26px;border-bottom:2px solid var(--ink);font-size:10.5px;font-weight:600;letter-spacing:.12em;overflow:hidden}
+.strip > span{display:flex;align-items:center;padding:0 11px;border-right:1.5px solid var(--ink);transition:background .12s,color .12s}
+.strip .lit{background:var(--orange);color:var(--white)}
+.strip .net{background:var(--key);color:var(--shell);gap:16px;flex:0 1 38%}
+.strip .fill{flex:1;border-right:0;padding:0}
+.lcd{display:grid;grid-template-columns:minmax(0,1fr) auto;grid-template-areas:"main meter" "sub meter" "flags meter";gap:6px 14px;align-items:center;background:var(--lcd);color:var(--lcd-fg);padding:14px 14px 14px 16px;border-bottom:2px solid var(--ink)}
+.lcd-main{grid-area:main;font-family:var(--font-lcd);font-weight:800;font-size:clamp(26px,4vw,32px);line-height:1;letter-spacing:.06em;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;min-width:0}
+.lcd-sub{grid-area:sub;font-family:var(--font-lcd);font-weight:600;font-size:13px;line-height:1.2;letter-spacing:.06em;color:var(--orange);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;min-width:0}
+.lcd-flags{grid-area:flags;display:flex;gap:6px;flex-wrap:wrap}
+.flag{font-size:10px;font-weight:600;line-height:1;padding:3px 6px;border:1px solid var(--lcd-dim);color:var(--lcd-dim);letter-spacing:.08em}
+.flag.on{background:var(--orange);border-color:var(--orange);color:var(--lcd)}
+.meter{grid-area:meter;display:flex;flex-direction:column-reverse;gap:2px}
+.meter i{display:block;width:15px;height:4px;background:var(--lcd-dim)}
+.meter i.on{background:var(--orange)}
+.meter i.hot{background:var(--lcd-fg)}
+.jackfield{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:4px 6px;padding:16px 10px 6px;border-bottom:2px solid var(--ink)}
+.jack{display:flex;flex-direction:column;align-items:center;gap:7px;padding:2px 0 26px;background:none;border:0;cursor:pointer;min-width:0;text-transform:uppercase;-webkit-tap-highlight-color:transparent}
+.jtop{display:flex;align-items:center;justify-content:space-between;width:100%;max-width:78px;font-size:10px;color:var(--mute)}
+.lamp{position:relative;display:block;width:11px;height:11px;border-radius:50%;border:1.5px solid var(--ink);background:var(--lamp-off)}
+.jlabel{display:flex;align-items:center;justify-content:space-between;gap:4px;width:100%;max-width:78px;padding:4px 6px;background:var(--key);color:var(--white);border:1.5px solid var(--ink);font-size:11px;font-weight:600;letter-spacing:.06em}
+.jname{white-space:nowrap;overflow:hidden;text-overflow:ellipsis;min-width:0}
+.pres{position:relative;flex:none;width:8px;height:8px;border-radius:50%;background:var(--white);border:1.5px solid var(--white)}
+.jack.away .jname{color:var(--away)}
+.jack.away .pres{background:transparent;border-color:var(--away)}
+.jack.dnd .pres{background:transparent}
+.jack.dnd .pres::after{content:"";position:absolute;left:-1px;right:-1px;top:50%;height:1.5px;margin-top:-.75px;background:var(--white)}
+.hole{display:grid;place-items:center;width:34px;height:34px;border-radius:50%;background:var(--white);border:2px solid var(--ink);transition:background .12s}
+.hole::after{content:"";width:13px;height:13px;border-radius:50%;background:var(--ink)}
+.jack.near .hole{background:var(--orange)}
+.jack[data-lamp="on"] .lamp{background:var(--orange)}
+.jack[data-lamp="tx"] .lamp{background:var(--orange);box-shadow:0 0 0 4px var(--orange-glow)}
+.jack[data-lamp="blink"] .lamp{animation:blink .36s steps(1) infinite}
+.jack[data-lamp="rx"] .lamp{background:var(--orange);animation:flicker .16s steps(1) infinite}
+.jack[data-lamp="dnd"] .lamp{background:var(--white)}
+.jack[data-lamp="dnd"] .lamp::after{content:"";position:absolute;left:1px;right:1px;top:50%;height:1.5px;margin-top:-.75px;background:var(--ink)}
+@keyframes blink{50%{background:var(--orange)}}
+@keyframes flicker{50%{background:var(--white)}}
+.deck{display:flex;align-items:stretch;gap:8px;padding:14px 12px 16px}
+.well{flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:5px;min-height:78px;background:var(--key);border:2px solid var(--ink)}
+.dock{width:42px;height:42px;border-radius:50%;background:var(--lcd);box-shadow:inset 0 0 0 3px var(--lcd-dim)}
+.well small{font-size:9px;font-weight:600;letter-spacing:.12em;color:var(--shell)}
+.deck .key{flex-direction:column;align-items:stretch;justify-content:space-between;width:64px;padding:8px 9px;font-size:13px;box-shadow:0 3px 0 var(--ink);touch-action:none}
+.deck .key:active,.deck .key.down{transform:translateY(3px);box-shadow:0 0 0 var(--ink)}
+.deck .key span{display:flex;align-items:center;justify-content:space-between;gap:6px}
+.deck .key small{font-size:9px;font-weight:600;letter-spacing:.08em;opacity:.85;text-align:left}
+.cords{position:absolute;inset:0;width:100%;height:100%;overflow:visible;pointer-events:none;z-index:2}
+.cords path{fill:none;stroke-linecap:round;stroke-linejoin:round}
+.cords .sh{stroke:var(--shadow);stroke-width:9;transform:translate(3px,5px)}
+.cords .o{stroke:var(--ink);stroke-width:9}
+.cords .c{stroke:var(--orange);stroke-width:5}
+.plug{position:absolute;left:-18px;top:-18px;z-index:3;width:36px;height:36px;padding:0;border:0;border-radius:50%;background:none;cursor:grab;touch-action:none;-webkit-tap-highlight-color:transparent}
+.plug::before,.plug::after{content:"";position:absolute;inset:0;border-radius:50%;border:2px solid var(--ink);transition:transform .12s}
+.plug::before{background:var(--plug-shadow);transform:translate(3px,4px)}
+.plug::after{background:radial-gradient(circle,var(--ink) 0 5.5px,var(--orange) 6px 9.5px,var(--ink) 10px 11.5px,var(--orange) 12px)}
+.plug.held{cursor:grabbing}
+.plug.held::before{transform:translate(6px,8px)}
+.plug.held::after{transform:translate(-2px,-3px)}
+
+/* sections */
+.sec{padding-block:clamp(48px,7vw,88px);border-bottom:2px solid var(--ink)}
+.sec-head{display:grid;gap:14px;margin-bottom:clamp(28px,4vw,44px)}
+.sec-head .label{color:var(--orange-ink)}
+
+/* how a call works: a real sequence */
+.steps{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));border-top:2px solid var(--ink);margin:0;padding:0;list-style:none}
+.steps li{display:grid;grid-template-rows:auto auto 1fr;gap:12px;padding:22px clamp(16px,2.4vw,28px) 6px 0;min-width:0}
+.steps li + li{padding-left:clamp(16px,2.4vw,28px);border-left:1.5px solid var(--ink)}
+.step-top{display:flex;align-items:center;justify-content:space-between}
+.step-n{font-family:var(--font-display);font-weight:300;font-size:54px;line-height:.8}
+.step-lamp{display:flex;align-items:center;gap:8px;font-family:var(--font-display);font-weight:600;font-size:11px;letter-spacing:.12em;text-transform:uppercase;color:var(--mute)}
+.step-lamp .lamp.blink{animation:blink .36s steps(1) infinite}
+.step-lamp .lamp.tx{background:var(--orange);box-shadow:0 0 0 4px var(--orange-glow)}
+
+/* the mic */
+.split{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1.05fr);gap:40px clamp(28px,5vw,64px);align-items:center}
+.split-copy{display:grid;gap:18px;align-content:start}
+.ticks{display:grid;gap:10px;margin:6px 0 0;padding:0;list-style:none}
+.ticks li{display:grid;grid-template-columns:14px minmax(0,1fr);gap:12px;align-items:baseline}
+.ticks li::before{content:"";width:9px;height:9px;border-radius:50%;border:1.5px solid var(--ink);background:var(--orange);transform:translateY(-1px)}
+kbd{font-family:var(--font-display);font-weight:700;font-size:.85em;letter-spacing:.04em;padding:1px 6px;border:1.5px solid var(--ink);border-bottom-width:3px;border-radius:4px;background:var(--white);white-space:nowrap}
+.desk{position:relative;height:clamp(340px,40vw,420px);border:2px solid var(--ink);border-radius:12px;overflow:hidden;background-color:var(--paper);background-image:radial-gradient(circle,var(--soft) 1.3px,transparent 1.7px);background-size:14px 14px;box-shadow:6px 8px 0 var(--shadow)}
+.menubar{position:relative;z-index:3;display:flex;align-items:center;justify-content:space-between;gap:12px;height:30px;padding:0 12px;background:var(--plate);border-bottom:2px solid var(--ink);font-family:var(--font-display);font-weight:600;font-size:12px;letter-spacing:.06em;white-space:nowrap}
+.menubar .apps{display:flex;gap:14px;overflow:hidden}
+.menubar .apps b{font-weight:700}
+.menubar .right{display:flex;align-items:center;gap:12px}
+.mb-icon{width:18px;height:18px;border-radius:50%;border:1.5px solid var(--ink);background:var(--white);display:grid;place-items:center}
+.mb-icon::after{content:"";width:6px;height:6px;border-radius:50%;background:var(--orange)}
+.dwin{position:absolute;left:7%;top:58px;width:min(58%,300px);border:2px solid var(--ink);border-radius:10px;overflow:hidden;background:var(--white);box-shadow:4px 5px 0 var(--shadow)}
+.dbar{display:flex;align-items:center;gap:6px;height:26px;padding:0 10px;border-bottom:1.5px solid var(--ink);background:var(--plate);font-family:var(--font-display);font-weight:600;font-size:11px;letter-spacing:.08em;text-transform:uppercase}
+.dbar i{width:9px;height:9px;border-radius:50%;border:1.5px solid var(--ink);background:var(--white)}
+.dbar span{margin-left:6px}
+.dlines{display:grid;gap:9px;padding:14px 14px 18px}
+.dlines i{display:block;height:7px;border-radius:4px;background:var(--soft)}
+.coil{position:absolute;inset:0;width:100%;height:100%;z-index:1;pointer-events:none}
+.coil path{fill:none;stroke-linecap:round;stroke-linejoin:round}
+.coil .o{stroke:var(--ink);stroke-width:5}
+.coil .c{stroke:var(--lamp-off);stroke-width:2.6}
+.fmic{position:absolute;left:0;top:0;z-index:2;width:96px;will-change:transform}
+.ftag{position:absolute;left:50%;bottom:calc(100% + 8px);transform:translateX(-50%);display:flex;align-items:center;gap:6px;padding:3px 8px 3px 6px;border:1.5px solid var(--ink);border-radius:999px;background:var(--white);font-family:var(--font-display);font-weight:700;font-size:11px;letter-spacing:.08em;white-space:nowrap}
+.ftag .lamp{width:9px;height:9px;background:var(--orange)}
+.mic{display:block;width:100%;height:auto;overflow:visible;filter:drop-shadow(4px 7px 0 var(--shadow))}
+.ill .st{stroke:var(--ink);stroke-width:2.5;stroke-linejoin:round;stroke-linecap:round}
+.ill .thin{stroke-width:1.5}
+.ill .hair{stroke-width:1.2}
+.ill .f-orange{fill:var(--orange)}
+.ill .f-ink{fill:var(--ink)}
+.ill .f-plate{fill:var(--plate)}
+.ill .f-slate{fill:var(--slate)}
+.ill .f-grille{fill:var(--grille-mic)}
+.ill .f-ring{fill:var(--dot-ring)}
+.ill .f-pill{fill:var(--pill)}
+.ill .led{fill:var(--led-off);stroke:var(--ink);stroke-width:1.2}
+.ill .led.on{fill:var(--orange)}
+.ill .word{font-family:var(--font-display);font-weight:400;fill:var(--ink);letter-spacing:.04em}
+
+/* friends: the card file */
+.punchbox{display:grid;gap:14px;padding:16px;background:var(--shell);border:2px solid var(--ink);border-radius:12px;box-shadow:6px 8px 0 var(--shadow);font-family:var(--font-display);text-transform:uppercase}
+.coderow{display:grid;grid-template-columns:minmax(0,1fr) auto;gap:8px;align-items:stretch}
+.codebox{display:flex;align-items:center;padding:8px 12px;background:var(--lcd);color:var(--lcd-fg);border:2px solid var(--ink);font-family:var(--font-lcd);font-weight:800;font-size:20px;letter-spacing:.12em;min-width:0;overflow:hidden}
+.coderow .key{font-size:13px;padding:8px 14px;box-shadow:0 3px 0 var(--ink)}
+.punchbox .lcd{grid-template-areas:"main" "sub" "flags";grid-template-columns:minmax(0,1fr);border:0}
+.punchbox .lcd-main{font-size:24px}
+.drum{position:relative;height:calc(var(--ch) + 50px);--cw:min(210px,100%);--ch:118px}
+.lcard{position:absolute;left:50%;bottom:0;width:var(--cw);height:var(--ch);background:var(--plate);border:2px solid var(--ink);border-radius:4px 14px 4px 4px;box-shadow:3px 4px 0 var(--plug-shadow);overflow:hidden;color:var(--ink);transform-origin:50% 100%;transform:translateX(-50%) translateY(calc(var(--k) * -15px)) scale(calc(1 - var(--k) * .045));filter:brightness(calc(1 - var(--k) * .07));z-index:calc(10 - var(--k))}
+.lc-band{position:absolute;left:0;right:0;top:0;height:7px;background:var(--orange);border-bottom:1.5px solid var(--ink)}
+.lc-kind{position:absolute;left:10px;top:14px;font-size:8.5px;font-weight:600;letter-spacing:.14em;color:var(--mute)}
+.lc-name{position:absolute;left:10px;top:25px;font-size:28px;font-weight:300;line-height:1;letter-spacing:.02em}
+.lc-meta{position:absolute;left:10px;top:58px;font-size:9px;font-weight:600;letter-spacing:.1em;color:var(--mute)}
+.lc-stamp{position:absolute;right:9px;top:15px;padding:2px 5px;border:1.5px solid var(--orange);color:var(--orange-ink);font-size:9.5px;font-weight:700;letter-spacing:.1em;transform:rotate(6deg)}
+.lc-holes{position:absolute;left:10px;right:10px;bottom:15px;display:grid;grid-template-columns:repeat(14,minmax(0,1fr));gap:3px}
+.lc-holes i{height:6px;border:1px solid var(--away);border-radius:1px}
+.lc-holes i.p{background:var(--ink);border-color:var(--ink)}
+.lc-notch{position:absolute;bottom:-2px;width:20px;height:8px;background:var(--shell);border:2px solid var(--ink);border-bottom:0;border-radius:10px 10px 0 0}
+.lc-notch.l{left:27%}
+.lc-notch.r{right:27%}
+.counter{display:flex;justify-content:space-between;font-size:11px;font-weight:600;letter-spacing:.12em}
+
+/* spec sheet */
+.specs{margin:0;border-top:2px solid var(--ink)}
+.specs > div{display:grid;grid-template-columns:minmax(0,13rem) minmax(0,1fr);gap:6px 28px;padding-block:14px;border-bottom:1.5px solid var(--ink)}
+.specs dt{font-family:var(--font-display);font-weight:600;font-size:12px;letter-spacing:.14em;text-transform:uppercase;padding-top:4px}
+.specs dd{margin:0;display:flex;flex-wrap:wrap;align-items:baseline;gap:4px 14px;min-width:0}
+.specs dd b{font-family:var(--font-display);font-weight:500;font-size:20px;letter-spacing:.04em;text-transform:uppercase}
+.specs dd span{color:var(--mute)}
+
+/* download */
+.get{display:grid;grid-template-columns:minmax(0,1.1fr) minmax(0,1fr);gap:28px clamp(28px,5vw,64px);align-items:start;padding:clamp(22px,4vw,40px);background:var(--shell);border:2px solid var(--ink);border-radius:14px;box-shadow:6px 8px 0 var(--shadow)}
+.get-main{display:grid;gap:18px;align-content:start}
+.get .key{justify-self:start;font-size:16px;padding:16px 24px}
+.install{display:grid;gap:0;margin:0;padding:0;list-style:none;border-top:2px solid var(--ink);counter-reset:step}
+.install li{display:grid;grid-template-columns:34px minmax(0,1fr);gap:12px;padding-block:12px;border-bottom:1.5px solid var(--ink);counter-increment:step}
+.install li::before{content:counter(step,decimal-leading-zero);font-family:var(--font-display);font-weight:600;font-size:13px;letter-spacing:.08em;padding-top:2px}
+.note{font-size:15px;color:var(--mute)}
+
+.foot{display:flex;flex-wrap:wrap;justify-content:space-between;gap:10px 24px;padding-block:22px 0;font-family:var(--font-display);font-weight:600;font-size:12px;letter-spacing:.12em;text-transform:uppercase;color:var(--mute)}
+.foot a{text-decoration:none}
+.foot a:hover{color:var(--orange-ink)}
+
+@media (max-width:900px){
+  .hero,.split,.get{grid-template-columns:minmax(0,1fr)}
+  .try{max-width:460px;width:100%;justify-self:center}
+  .steps{grid-template-columns:minmax(0,1fr)}
+  .steps li,.steps li + li{padding:20px 0 22px;border-left:0;border-bottom:1.5px solid var(--ink)}
+}
+@media (max-width:560px){
+  .nav a:not(.key){display:none}
+  .specs > div{grid-template-columns:minmax(0,1fr)}
+  .jackfield{padding-inline:6px;gap:4px 4px}
+  .deck .key{width:58px}
+}
+@media (prefers-reduced-motion: reduce){
+  .jack[data-lamp="blink"] .lamp,.step-lamp .lamp.blink{animation:none;background:var(--orange);opacity:.55}
+  .jack[data-lamp="rx"] .lamp{animation:none}
+}
+</style>
+
+<div class="page">
+  <header class="mast">
+    <a class="brand" href="#top" aria-label="Talkie">
+      <span class="brand-jack" aria-hidden="true"></span>
+      <span><b>TALKIE</b><small>PATCH INTERCOM FOR THE MAC</small></span>
+    </a>
+    <nav class="nav" aria-label="Sections">
+      <a href="#how">How it works</a>
+      <a href="#mic">The mic</a>
+      <a href="#friends">Friends</a>
+      <a href="#specs">Specs</a>
+      <a class="key key-orange" href="#download">Download</a>
+    </nav>
+  </header>
+
+  <main id="top">
+    <section class="hero" aria-labelledby="heroTitle">
+      <div class="hero-copy">
+        <span class="label">A walkie-talkie for the Mac</span>
+        <h1 id="heroTitle">Plug in. <span>Start talking.</span></h1>
+        <p class="lede">Talkie puts your friends on a switchboard. Drag a patch cord into a friend's jack and the line opens straight away. There's no ringing and nothing to answer. Hold the mic and they hear you.</p>
+        <div class="cta">
+          <a class="key key-orange" href="https://github.com/spacemnke/talkie/releases/download/latest/Talkie.dmg">Download for Mac <span class="led" aria-hidden="true"></span></a>
+          <span class="cta-meta">Early build<br>macOS 14 or later · Apple silicon and Intel</span>
+        </div>
+      </div>
+
+      <div class="try">
+        <div class="board" id="board">
+          <div class="strip" aria-hidden="true"><span id="sSpk">SPKR</span><span id="sMic">MIC</span><span class="net">NET <span>LINK</span></span><span class="fill"></span></div>
+          <div class="lcd" role="status" aria-live="polite">
+            <div class="lcd-main" id="lcdBig">IDLE</div>
+            <div class="lcd-sub" id="lcdSub">DRAG THE PLUG INTO A JACK</div>
+            <div class="lcd-flags" aria-hidden="true"><span class="flag" id="fA">A</span><span class="flag" id="fTx">TX</span><span class="flag" id="fRx">RX</span></div>
+            <div class="meter" id="meter" aria-hidden="true"><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i></div>
+          </div>
+          <div class="jackfield">
+            <button class="jack" type="button" data-lamp="off" aria-label="Jack 1: Maya, online"><span class="jtop"><i class="lamp"></i>01</span><span class="jlabel"><span class="jname">MAYA</span><i class="pres"></i></span><span class="hole"></span></button>
+            <button class="jack" type="button" data-lamp="off" aria-label="Jack 2: Otto, online"><span class="jtop"><i class="lamp"></i>02</span><span class="jlabel"><span class="jname">OTTO</span><i class="pres"></i></span><span class="hole"></span></button>
+            <button class="jack away" type="button" data-lamp="off" aria-label="Jack 3: Jun, away"><span class="jtop"><i class="lamp"></i>03</span><span class="jlabel"><span class="jname">JUN</span><i class="pres"></i></span><span class="hole"></span></button>
+            <button class="jack dnd" type="button" data-lamp="off" aria-label="Jack 4: Ruby, do not disturb"><span class="jtop"><i class="lamp"></i>04</span><span class="jlabel"><span class="jname">RUBY</span><i class="pres"></i></span><span class="hole"></span></button>
+          </div>
+          <div class="deck">
+            <div class="well"><span class="dock" id="dock"></span><small>CORD A</small></div>
+            <button class="key key-orange" id="talk" type="button" aria-label="Talk. Press and hold."><span>TALK<i class="led"></i></span><small>HOLD</small></button>
+            <button class="key lit" id="snd" type="button" aria-pressed="true" aria-label="Sound"><span>SND<i class="led"></i></span><small id="sndState">ON</small></button>
+          </div>
+          <svg class="cords" id="cords" aria-hidden="true"><path class="sh"/><path class="o"/><path class="c"/></svg>
+          <button class="plug" id="plug" type="button" aria-label="Cord A plug. Drag it into a jack, or press a jack."></button>
+        </div>
+        <p class="try-hint">Drag the plug into Maya's jack, then hold Talk</p>
+      </div>
+    </section>
+
+    <section class="sec" id="how" aria-labelledby="howTitle">
+      <div class="sec-head">
+        <span class="label">How a call works</span>
+        <h2 id="howTitle">Three moves, no dialing</h2>
+      </div>
+      <ol class="steps">
+        <li>
+          <div class="step-top"><span class="step-n">1</span><span class="step-lamp"><i class="lamp blink"></i>Connecting</span></div>
+          <h3>Patch in</h3>
+          <p>Drag a cord into a friend's jack. The lamp blinks while the line connects, then stays orange. It takes less than a second.</p>
+        </li>
+        <li>
+          <div class="step-top"><span class="step-n">2</span><span class="step-lamp"><i class="lamp tx"></i>On the line</span></div>
+          <h3>Talk</h3>
+          <p>The mic drops out of the menu bar and floats above your apps. Hold it, or hold <kbd>⌥ Space</kbd> from any app, and talk. You can both talk at the same time.</p>
+        </li>
+        <li>
+          <div class="step-top"><span class="step-n">3</span><span class="step-lamp"><i class="lamp"></i>Idle</span></div>
+          <h3>Pull the plug</h3>
+          <p>Unplug the cord and the line closes. The mic winds back up into the menu bar until the next call.</p>
+        </li>
+      </ol>
+    </section>
+
+    <section class="sec" id="mic" aria-labelledby="micTitle">
+      <div class="split">
+        <div class="split-copy">
+          <span class="label" style="color:var(--orange-ink)">The mic</span>
+          <h2 id="micTitle">Out on a coiled cord while the line is open</h2>
+          <p>When a line opens, the mic drops from the menu bar and hangs over every app, full-screen ones included. Drag it or fling it anywhere and it stays where you leave it.</p>
+          <ul class="ticks">
+            <li><span>Hold it, or hold <kbd>⌥ Space</kbd>, to talk.</span></li>
+            <li><span>The orange side key changes your voice: Canyon, Tin can, Helium or Machine.</span></li>
+            <li><span>The grey side key buzzes everyone on the line.</span></li>
+            <li><span>It never shows up in screen shares or recordings.</span></li>
+            <li><span>Click the jack in the menu bar to put it away.</span></li>
+          </ul>
+        </div>
+        <div class="desk" id="desk" aria-hidden="true">
+          <div class="menubar"><span class="apps"><b>Notes</b><span>File</span><span>Edit</span><span>View</span></span><span class="right"><span class="mb-icon" id="mbIcon"></span><span>Tue 9:41</span></span></div>
+          <div class="dwin"><div class="dbar"><i></i><i></i><i></i><span>Notes</span></div><div class="dlines"><i style="width:72%"></i><i></i><i style="width:88%"></i><i style="width:64%"></i><i style="width:80%"></i></div></div>
+          <svg class="coil" id="coil"><path class="o"/><path class="c"/></svg>
+          <div class="fmic" id="fmic">
+            <span class="ftag"><i class="lamp"></i>MAYA</span>
+            <svg class="mic ill" viewBox="20 30 160 275">
+              <rect class="f-orange st" x="144" y="58" width="28" height="30" rx="4"/>
+              <rect class="f-plate st" x="144" y="106" width="28" height="28" rx="4"/>
+              <rect class="f-plate st" x="144" y="194" width="26" height="24" rx="4"/>
+              <path class="f-orange st" d="M70 54 L40 62 Q28 65 31 78 L62 206 L70 206 Z"/>
+              <rect class="f-grille st" x="62" y="40" width="96" height="118"/>
+              <g><circle class="f-ring st hair" cx="69" cy="47" r="3.7"/><circle class="f-ring st hair" cx="79" cy="47" r="3.7"/><circle class="f-ring st hair" cx="89" cy="47" r="3.7"/><circle class="f-ring st hair" cx="99" cy="47" r="3.7"/><circle class="f-ring st hair" cx="109" cy="47" r="3.7"/><circle class="f-ring st hair" cx="119" cy="47" r="3.7"/><circle class="f-ring st hair" cx="129" cy="47" r="3.7"/><circle class="f-ring st hair" cx="139" cy="47" r="3.7"/><circle class="f-ring st hair" cx="149" cy="47" r="3.7"/><circle class="f-ring st hair" cx="69" cy="57" r="3.7"/><circle class="f-ink" cx="79" cy="57" r="3.7"/><circle class="f-ink" cx="89" cy="57" r="3.7"/><circle class="f-ink" cx="99" cy="57" r="3.7"/><circle class="f-ink" cx="109" cy="57" r="3.7"/><circle class="f-ink" cx="119" cy="57" r="3.7"/><circle class="f-ink" cx="129" cy="57" r="3.7"/><circle class="f-ring st hair" cx="149" cy="57" r="3.7"/><circle class="f-ring st hair" cx="69" cy="67" r="3.7"/><circle class="f-ink" cx="79" cy="67" r="3.7"/><circle class="f-ink" cx="89" cy="67" r="3.7"/><circle class="f-ink" cx="99" cy="67" r="3.7"/><circle class="f-ink" cx="109" cy="67" r="3.7"/><circle class="f-ink" cx="119" cy="67" r="3.7"/><circle class="f-ink" cx="129" cy="67" r="3.7"/><circle class="f-ring st hair" cx="149" cy="67" r="3.7"/><circle class="f-ring st hair" cx="69" cy="77" r="3.7"/><circle class="f-ink" cx="79" cy="77" r="3.7"/><circle class="f-ink" cx="89" cy="77" r="3.7"/><circle class="f-ink" cx="99" cy="77" r="3.7"/><circle class="f-ink" cx="109" cy="77" r="3.7"/><circle class="f-ink" cx="119" cy="77" r="3.7"/><circle class="f-ink" cx="129" cy="77" r="3.7"/><circle class="f-ring st hair" cx="149" cy="77" r="3.7"/><circle class="f-ring st hair" cx="69" cy="87" r="3.7"/><circle class="f-ink" cx="79" cy="87" r="3.7"/><circle class="f-ink" cx="89" cy="87" r="3.7"/><circle class="f-ink" cx="99" cy="87" r="3.7"/><circle class="f-ink" cx="109" cy="87" r="3.7"/><circle class="f-ink" cx="119" cy="87" r="3.7"/><circle class="f-ink" cx="129" cy="87" r="3.7"/><circle class="f-ring st hair" cx="149" cy="87" r="3.7"/><circle class="f-ring st hair" cx="69" cy="97" r="3.7"/><circle class="f-ink" cx="79" cy="97" r="3.7"/><circle class="f-ink" cx="89" cy="97" r="3.7"/><circle class="f-ink" cx="99" cy="97" r="3.7"/><circle class="f-ink" cx="109" cy="97" r="3.7"/><circle class="f-ink" cx="119" cy="97" r="3.7"/><circle class="f-ink" cx="129" cy="97" r="3.7"/><circle class="f-ink" cx="139" cy="97" r="3.7"/><circle class="f-ring st hair" cx="149" cy="97" r="3.7"/><circle class="f-ring st hair" cx="69" cy="107" r="3.7"/><circle class="f-ink" cx="79" cy="107" r="3.7"/><circle class="f-ink" cx="89" cy="107" r="3.7"/><circle class="f-ink" cx="99" cy="107" r="3.7"/><circle class="f-ink" cx="109" cy="107" r="3.7"/><circle class="f-ink" cx="119" cy="107" r="3.7"/><circle class="f-ink" cx="129" cy="107" r="3.7"/><circle class="f-ring st hair" cx="149" cy="107" r="3.7"/><circle class="f-ring st hair" cx="69" cy="117" r="3.7"/><circle class="f-ink" cx="79" cy="117" r="3.7"/><circle class="f-ink" cx="89" cy="117" r="3.7"/><circle class="f-ink" cx="99" cy="117" r="3.7"/><circle class="f-ink" cx="109" cy="117" r="3.7"/><circle class="f-ink" cx="119" cy="117" r="3.7"/><circle class="f-ink" cx="129" cy="117" r="3.7"/><circle class="f-ring st hair" cx="149" cy="117" r="3.7"/><circle class="f-ring st hair" cx="69" cy="127" r="3.7"/><circle class="f-ink" cx="79" cy="127" r="3.7"/><circle class="f-ink" cx="89" cy="127" r="3.7"/><circle class="f-ink" cx="99" cy="127" r="3.7"/><circle class="f-ink" cx="109" cy="127" r="3.7"/><circle class="f-ink" cx="119" cy="127" r="3.7"/><circle class="f-ink" cx="129" cy="127" r="3.7"/><circle class="f-ring st hair" cx="149" cy="127" r="3.7"/><circle class="f-ring st hair" cx="69" cy="137" r="3.7"/><circle class="f-ink" cx="79" cy="137" r="3.7"/><circle class="f-ink" cx="89" cy="137" r="3.7"/><circle class="f-ink" cx="99" cy="137" r="3.7"/><circle class="f-ink" cx="109" cy="137" r="3.7"/><circle class="f-ink" cx="119" cy="137" r="3.7"/><circle class="f-ink" cx="129" cy="137" r="3.7"/><circle class="f-ring st hair" cx="149" cy="137" r="3.7"/><circle class="f-ring st hair" cx="69" cy="147" r="3.7"/><circle class="f-ring st hair" cx="79" cy="147" r="3.7"/><circle class="f-ring st hair" cx="89" cy="147" r="3.7"/><circle class="f-ring st hair" cx="99" cy="147" r="3.7"/><circle class="f-ring st hair" cx="109" cy="147" r="3.7"/><circle class="f-ring st hair" cx="119" cy="147" r="3.7"/><circle class="f-ring st hair" cx="129" cy="147" r="3.7"/><circle class="f-ring st hair" cx="139" cy="147" r="3.7"/><circle class="f-ring st hair" cx="149" cy="147" r="3.7"/></g>
+              <rect class="f-pill st thin" x="133" y="51" width="12" height="42" rx="6"/>
+              <circle class="led on" cx="139" cy="57" r="3.2"/><circle class="led" cx="139" cy="67" r="3.2"/><circle class="led" cx="139" cy="77" r="3.2"/><circle class="led" cx="139" cy="87" r="3.2"/>
+              <rect class="f-pill st thin" x="133" y="101" width="12" height="42" rx="6"/>
+              <circle class="led" cx="139" cy="107" r="3.2"/><circle class="led" cx="139" cy="117" r="3.2"/><circle class="led" cx="139" cy="127" r="3.2"/><circle class="led" cx="139" cy="137" r="3.2"/>
+              <rect class="f-plate st" x="62" y="158" width="96" height="92"/>
+              <circle class="f-plate st thin" cx="73" cy="169" r="5"/><circle class="f-plate st thin" cx="147" cy="169" r="5"/>
+              <circle class="f-plate st thin" cx="73" cy="239" r="5"/><circle class="f-plate st thin" cx="147" cy="239" r="5"/>
+              <text class="word" x="110" y="211" font-size="19" text-anchor="middle">TALKIE</text>
+              <rect class="f-slate st thin" x="104" y="250" width="12" height="50"/>
+              <rect class="f-slate st thin" x="96" y="255" width="28" height="5"/><rect class="f-slate st thin" x="96" y="264" width="28" height="5"/>
+              <rect class="f-slate st thin" x="96" y="273" width="28" height="5"/><rect class="f-slate st thin" x="96" y="282" width="28" height="5"/>
+              <rect class="f-slate st thin" x="96" y="291" width="28" height="5"/>
+            </svg>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <section class="sec" id="friends" aria-labelledby="friendsTitle">
+      <div class="split">
+        <div class="split-copy">
+          <span class="label" style="color:var(--orange-ink)">Adding friends</span>
+          <h2 id="friendsTitle">Eight jacks and a Rolodex</h2>
+          <p>Everyone on Talkie has a code, like <b>TLK-7Q4F</b>. When a friend sends you theirs, check it in the card file and the punch issues their line card. Drag the card into the punch and they land on a free jack.</p>
+          <p>Your board holds eight friends. Everyone you add keeps a card in the Rolodex, so you can eject someone to make room and punch their card back in later.</p>
+          <p class="note">Each code works once. Every card has its own hole pattern.</p>
+        </div>
+        <div class="punchbox" aria-hidden="true">
+          <div class="coderow"><span class="codebox">TLK-ZOE7</span><span class="key key-orange">Check</span></div>
+          <div class="lcd">
+            <div class="lcd-main">ACCEPTED</div>
+            <div class="lcd-sub">ZOE · JACK 08</div>
+            <div class="lcd-flags"><span class="flag">READ</span><span class="flag on">OK</span><span class="flag">ERR</span></div>
+          </div>
+          <div class="counter"><span>Rolodex</span><span>01 / 11</span></div>
+          <div class="drum">
+            <div class="lcard" style="--k:2" data-name="KAI"><span class="lc-band"></span><span class="lc-kind">LINE CARD</span><b class="lc-name">KAI</b><span class="lc-meta">ADDED 02 SEP</span><span class="lc-stamp">JACK 07</span><span class="lc-holes"></span><span class="lc-notch l"></span><span class="lc-notch r"></span></div>
+            <div class="lcard" style="--k:1" data-name="MAYA"><span class="lc-band"></span><span class="lc-kind">LINE CARD</span><b class="lc-name">MAYA</b><span class="lc-meta">ADDED 12 MAR</span><span class="lc-stamp">JACK 01</span><span class="lc-holes"></span><span class="lc-notch l"></span><span class="lc-notch r"></span></div>
+            <div class="lcard" style="--k:0" data-name="ZOE"><span class="lc-band"></span><span class="lc-kind">LINE CARD</span><b class="lc-name">ZOE</b><span class="lc-meta">ADDED 11 OCT · TLK-ZOE7</span><span class="lc-stamp">JACK 08</span><span class="lc-holes"></span><span class="lc-notch l"></span><span class="lc-notch r"></span></div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <section class="sec" id="specs" aria-labelledby="specsTitle">
+      <div class="sec-head">
+        <span class="label">Specifications</span>
+        <h2 id="specsTitle">On the board</h2>
+      </div>
+      <dl class="specs">
+        <div><dt>Lines</dt><dd><b>8 jacks</b><span>One friend per jack. Everyone else waits in the Rolodex.</span></dd></div>
+        <div><dt>Cords</dt><dd><b>2</b><span>Plug both in for a three-way line.</span></dd></div>
+        <div><dt>Opening a line</dt><dd><b>Instant</b><span>No ringing and no answer button.</span></dd></div>
+        <div><dt>Talking</dt><dd><b>Full duplex</b><span>You both talk at once, like a phone call.</span></dd></div>
+        <div><dt>Mute</dt><dd><b>Private</b><span>The person you mute never sees it.</span></dd></div>
+        <div><dt>Do not disturb</dt><dd><b>Patches wait</b><span>A friend's cord stays in your jack and opens when you're back.</span></dd></div>
+        <div><dt>Voice effects</dt><dd><b>4</b><span>Canyon, Tin can, Helium and Machine. Your friend hears them too.</span></dd></div>
+        <div><dt>Talk key</dt><dd><b>⌥ Space</b><span>Hold it from any app.</span></dd></div>
+        <div><dt>System</dt><dd><b>macOS 14+</b><span>Sonoma or later, on Apple silicon or Intel. Lives in the menu bar.</span></dd></div>
+      </dl>
+    </section>
+
+    <section class="sec" id="download" aria-labelledby="getTitle" style="border-bottom:0">
+      <div class="get">
+        <div class="get-main">
+          <span class="label" style="color:var(--orange-ink)">Download</span>
+          <h2 id="getTitle">Get the early build</h2>
+          <p>The switchboard, the floating mic and the card file all work today, with practice friends to patch into. Real lines between Macs come next.</p>
+          <a class="key key-orange" href="https://github.com/spacemnke/talkie/releases/download/latest/Talkie.dmg">Download Talkie.dmg <span class="led" aria-hidden="true"></span></a>
+          <span class="cta-meta">Universal app · macOS 14 Sonoma or later</span>
+        </div>
+        <div>
+          <ol class="install">
+            <li><span>Open <b>Talkie.dmg</b> and drag Talkie into Applications.</span></li>
+            <li><span>Open Talkie. The first time, macOS stops it because it isn't notarized yet.</span></li>
+            <li><span>Go to <b>System Settings → Privacy &amp; Security</b> and click <b>Open Anyway</b>.</span></li>
+            <li><span>Look for the jack in your menu bar. Click it to open the board.</span></li>
+          </ol>
+        </div>
+      </div>
+    </section>
+  </main>
+
+  <footer class="foot">
+    <span>Talkie · Patch intercom for the Mac</span>
+    <a href="#top">Back to top ↑</a>
+  </footer>
+</div>
+
+<script>
+(() => {
+  const reduce = matchMedia("(prefers-reduced-motion: reduce)").matches;
+
+  /* ---------- sound: synthesized clicks and beeps, only after you touch something ---------- */
+  let ac = null, master = null, noise = null, soundOn = true;
+  function ensureAudio() {
+    if (!ac) {
+      try {
+        ac = new (window.AudioContext || window.webkitAudioContext)();
+        master = ac.createGain();
+        master.gain.value = 0.6;
+        master.connect(ac.destination);
+        noise = ac.createBuffer(1, ac.sampleRate * 0.5, ac.sampleRate);
+        const d = noise.getChannelData(0);
+        for (let i = 0; i < d.length; i++) d[i] = Math.random() * 2 - 1;
+      } catch (err) { ac = null; }
+    }
+    if (ac && ac.state === "suspended") ac.resume().catch(() => {});
+  }
+  function env(g, t, dur, peak) {
+    g.gain.setValueAtTime(0.0001, t);
+    g.gain.exponentialRampToValueAtTime(peak, t + 0.004);
+    g.gain.exponentialRampToValueAtTime(0.0001, t + dur);
+  }
+  function tone(f, dur, peak, type, at, f2) {
+    if (!ac || !soundOn) return;
+    const t = ac.currentTime + (at || 0), o = ac.createOscillator(), g = ac.createGain();
+    o.type = type || "square";
+    o.frequency.setValueAtTime(f, t);
+    if (f2) o.frequency.exponentialRampToValueAtTime(f2, t + dur);
+    env(g, t, dur, peak);
+    o.connect(g).connect(master);
+    o.start(t); o.stop(t + dur + 0.02);
+  }
+  function hiss(dur, peak, freq, q, at) {
+    if (!ac || !soundOn) return;
+    const t = ac.currentTime + (at || 0), s = ac.createBufferSource(), bp = ac.createBiquadFilter(), g = ac.createGain();
+    s.buffer = noise; bp.type = "bandpass"; bp.frequency.value = freq; bp.Q.value = q;
+    env(g, t, dur, peak);
+    s.connect(bp).connect(g).connect(master);
+    s.start(t); s.stop(t + dur + 0.02);
+  }
+  const sfx = {
+    plug() { hiss(0.035, 0.6, 3200, 1.2); tone(120, 0.1, 0.5, "sine", 0, 50); },
+    unplug() { tone(520, 0.07, 0.22, "sine", 0, 160); hiss(0.03, 0.25, 2600, 1); },
+    open() { tone(880, 0.05, 0.05); tone(1320, 0.07, 0.05, "square", 0.065); },
+    key() { hiss(0.05, 0.16, 1400, 0.7); },
+    over() { hiss(0.12, 0.22, 1800, 0.6); tone(1250, 0.06, 0.05, "square", 0.13); tone(940, 0.09, 0.05, "square", 0.2); },
+    deny() { tone(200, 0.14, 0.08); },
+    click() { tone(1900, 0.025, 0.06); }
+  };
+
+  /* ---------- the mini switchboard ---------- */
+  const board = document.getElementById("board");
+  const plug = document.getElementById("plug");
+  const dockEl = document.getElementById("dock");
+  const jacks = Array.from(board.querySelectorAll(".jack"));
+  const [shPath, oPath, cPath] = board.querySelectorAll("#cords path");
+  const lcdBig = document.getElementById("lcdBig"), lcdSub = document.getElementById("lcdSub");
+  const flags = { a: document.getElementById("fA"), tx: document.getElementById("fTx"), rx: document.getElementById("fRx") };
+  const sSpk = document.getElementById("sSpk"), sMic = document.getElementById("sMic");
+  const bars = Array.from(document.querySelectorAll("#meter i"));
+  const talkBtn = document.getElementById("talk"), sndBtn = document.getElementById("snd");
+  const friends = [
+    { name: "MAYA", state: "online" }, { name: "OTTO", state: "online" },
+    { name: "JUN", state: "away" }, { name: "RUBY", state: "dnd" }
+  ];
+  let patched = null, status = null, since = 0, talking = false, reply = null, msg = null;
+  let pos = null, drag = null, seatPending = false, near = null, level = 0;
+  const now = () => performance.now() / 1000;
+  const say = (big, sub, secs) => { msg = { big, sub, until: now() + (secs || 1.9) }; };
+  const clock = s => { s = Math.max(0, Math.floor(s)); return String(Math.floor(s / 60)).padStart(2, "0") + ":" + String(s % 60).padStart(2, "0"); };
+
+  function centerOf(el) {
+    const b = board.getBoundingClientRect(), r = el.getBoundingClientRect();
+    return { x: r.left - b.left + r.width / 2, y: r.top - b.top + r.height / 2 };
+  }
+  const holeOf = i => centerOf(jacks[i].querySelector(".hole"));
+  const target = () => patched == null ? centerOf(dockEl) : holeOf(patched);
+
+  function patchInto(i) {
+    if (patched === i) return;
+    const f = friends[i];
+    patched = i;
+    status = f.state === "online" ? "connecting" : f.state;
+    since = now(); reply = null; msg = null;
+  }
+  function unpatch() {
+    if (patched == null) return;
+    patched = null; status = null; reply = null;
+    sfx.unplug();
+  }
+  const lineOpen = () => status === "open";
+
+  function startTalk() {
+    if (talking) return;
+    ensureAudio();
+    talking = true;
+    talkBtn.classList.add("down");
+    sfx.key();
+    if (!lineOpen()) say("NO LINE", "PLUG INTO MAYA OR OTTO FIRST", 1.6);
+  }
+  function stopTalk() {
+    if (!talking) return;
+    talking = false;
+    talkBtn.classList.remove("down");
+    if (lineOpen()) {
+      sfx.over();
+      // Your friend answers back.
+      const t = now();
+      reply = { start: t + 0.9, end: t + 2.6, on: false };
+    }
+  }
+
+  function tick(t) {
+    if (status === "connecting" && t - since >= 0.75) { status = "open"; since = t; sfx.open(); }
+    if (reply) {
+      if (!reply.on && t >= reply.start && lineOpen()) { reply.on = true; sfx.key(); }
+      if (t >= reply.end) { if (reply.on) sfx.over(); reply = null; }
+    }
+    if (msg && t >= msg.until) msg = null;
+  }
+
+  function readout(t) {
+    if (msg) return msg;
+    if (patched == null) return { big: "IDLE", sub: "DRAG THE PLUG INTO A JACK" };
+    const f = friends[patched];
+    if (status === "away") return { big: f.name, sub: f.name + " IS AWAY" };
+    if (status === "dnd") return { big: f.name, sub: "DO NOT DISTURB · PATCH WAITS" };
+    if (status === "connecting") return { big: f.name, sub: "PATCHING IN…" };
+    if (reply && reply.on) return { big: f.name, sub: f.name + " TALKING" };
+    if (talking) return { big: f.name, sub: "TALKING TO " + f.name };
+    return { big: f.name, sub: "LINE A · OPEN · " + clock(t - since) };
+  }
+
+  function lampFor(i) {
+    if (i !== patched) return "off";
+    if (status === "connecting") return "blink";
+    if (status === "dnd") return "dnd";
+    if (status !== "open") return "off";
+    if (reply && reply.on) return "rx";
+    return talking ? "tx" : "on";
+  }
+
+  let shown = {};
+  function setText(el, key, v) { if (shown[key] !== v) { shown[key] = v; el.textContent = v; } }
+  function render(t) {
+    const r = readout(t);
+    setText(lcdBig, "big", r.big);
+    setText(lcdSub, "sub", r.sub);
+    jacks.forEach((j, i) => {
+      const l = lampFor(i);
+      if (j.dataset.lamp !== l) j.dataset.lamp = l;
+      j.classList.toggle("near", near === i);
+    });
+    const rx = !!(reply && reply.on), tx = talking && lineOpen();
+    flags.a.classList.toggle("on", patched != null);
+    flags.tx.classList.toggle("on", tx);
+    flags.rx.classList.toggle("on", rx);
+    sSpk.classList.toggle("lit", rx);
+    sMic.classList.toggle("lit", talking);
+    const want = tx || rx ? (0.25 + Math.abs(Math.sin(t * 7.3) * 0.5 + Math.sin(t * 17.9) * 0.35)) * (Math.sin(t * 1.6) > -0.6 ? 1 : 0.2) : 0;
+    level += (want - level) * (want > level ? 0.45 : 0.12);
+    const lit = Math.round(Math.min(1, level) * bars.length);
+    bars.forEach((b, i) => { b.classList.toggle("on", i < lit && i < 6); b.classList.toggle("hot", i < lit && i >= 6); });
+  }
+
+  function drawCord() {
+    const d = centerOf(dockEl), p = pos;
+    const dist = Math.hypot(p.x - d.x, p.y - d.y);
+    let path = "";
+    if (dist > 4) {
+      const sag = 26 + dist * 0.32;
+      path = "M" + d.x.toFixed(1) + " " + d.y.toFixed(1) +
+        " C" + d.x.toFixed(1) + " " + (d.y + 30).toFixed(1) +
+        " " + p.x.toFixed(1) + " " + (p.y + sag).toFixed(1) +
+        " " + p.x.toFixed(1) + " " + p.y.toFixed(1);
+    }
+    shPath.setAttribute("d", path); oPath.setAttribute("d", path); cPath.setAttribute("d", path);
+  }
+
+  function nearestJack(p) {
+    let best = null, bestD = 40;
+    jacks.forEach((_, i) => {
+      const h = holeOf(i), dd = Math.hypot(h.x - p.x, h.y - p.y);
+      if (dd < bestD) { best = i; bestD = dd; }
+    });
+    return best;
+  }
+
+  function local(e) {
+    const b = board.getBoundingClientRect();
+    return { x: e.clientX - b.left, y: e.clientY - b.top, w: b.width, h: b.height };
+  }
+
+  plug.addEventListener("pointerdown", e => {
+    if (e.button) return;
+    e.preventDefault();
+    ensureAudio();
+    plug.setPointerCapture(e.pointerId);
+    const p = local(e);
+    drag = { id: e.pointerId, ox: pos.x - p.x, oy: pos.y - p.y, sx: p.x, sy: p.y, moved: false };
+  });
+  plug.addEventListener("pointermove", e => {
+    if (!drag || e.pointerId !== drag.id) return;
+    const p = local(e);
+    if (!drag.moved && Math.hypot(p.x - drag.sx, p.y - drag.sy) > 5) {
+      drag.moved = true;
+      plug.classList.add("held");
+      if (patched != null) unpatch();
+    }
+    if (!drag.moved) return;
+    pos = { x: Math.min(Math.max(p.x + drag.ox, 14), p.w - 14), y: Math.min(Math.max(p.y + drag.oy, 14), p.h - 14) };
+    near = nearestJack(pos);
+  });
+  function endDrag(e, cancelled) {
+    if (!drag || e.pointerId !== drag.id) return;
+    const moved = drag.moved;
+    drag = null;
+    plug.classList.remove("held");
+    if (!moved) {
+      if (patched != null) unpatch();
+      else { say("CORD A", "DRAG IT INTO A JACK", 1.6); sfx.click(); }
+    } else if (!cancelled && near != null) {
+      patchInto(near);
+      sfx.plug();
+    }
+    near = null;
+  }
+  plug.addEventListener("pointerup", e => endDrag(e, false));
+  plug.addEventListener("pointercancel", e => endDrag(e, true));
+
+  jacks.forEach((j, i) => j.addEventListener("click", () => {
+    ensureAudio();
+    if (patched === i) { unpatch(); return; }
+    patchInto(i);
+    // The plug flies over and clicks when it lands.
+    seatPending = true;
+  }));
+
+  talkBtn.addEventListener("pointerdown", e => {
+    if (e.button) return;
+    e.preventDefault();
+    talkBtn.setPointerCapture(e.pointerId);
+    startTalk();
+  });
+  ["pointerup", "pointercancel", "lostpointercapture"].forEach(type => talkBtn.addEventListener(type, stopTalk));
+  talkBtn.addEventListener("keydown", e => {
+    if ((e.key === " " || e.key === "Enter") && !e.repeat) { e.preventDefault(); startTalk(); }
+  });
+  talkBtn.addEventListener("keyup", e => {
+    if (e.key === " " || e.key === "Enter") { e.preventDefault(); stopTalk(); }
+  });
+  talkBtn.addEventListener("blur", stopTalk);
+  talkBtn.addEventListener("contextmenu", e => e.preventDefault());
+
+  sndBtn.addEventListener("click", () => {
+    soundOn = !soundOn;
+    ensureAudio();
+    sndBtn.classList.toggle("lit", soundOn);
+    sndBtn.setAttribute("aria-pressed", String(soundOn));
+    document.getElementById("sndState").textContent = soundOn ? "ON" : "OFF";
+    sfx.click();
+  });
+
+  function boardFrame() {
+    const t = now();
+    tick(t);
+    if (!drag) {
+      const tg = target();
+      if (!pos) pos = { x: tg.x, y: tg.y };
+      const k = reduce ? 1 : 0.24;
+      pos = { x: pos.x + (tg.x - pos.x) * k, y: pos.y + (tg.y - pos.y) * k };
+      if (seatPending && Math.hypot(tg.x - pos.x, tg.y - pos.y) < 3) { seatPending = false; sfx.plug(); }
+    }
+    plug.style.transform = "translate(" + pos.x.toFixed(1) + "px," + pos.y.toFixed(1) + "px)";
+    drawCord();
+    render(t);
+  }
+
+  /* ---------- line cards: every name gets its own hole pattern ---------- */
+  function holesFor(name) {
+    let h = 2166136261;
+    for (const ch of name) { h ^= ch.charCodeAt(0); h = Math.imul(h, 16777619); }
+    const g = Math.imul(h ^ (h >>> 15), 2246822507);
+    return Array.from({ length: 28 }, (_, i) => ((i < 14 ? h : g) >>> (i % 14 * 2)) & 1);
+  }
+  document.querySelectorAll(".lcard").forEach(card => {
+    const box = card.querySelector(".lc-holes");
+    holesFor(card.dataset.name).forEach(bit => {
+      const i = document.createElement("i");
+      if (bit) i.className = "p";
+      box.appendChild(i);
+    });
+  });
+
+  /* ---------- the floating mic on its coiled cord ---------- */
+  const desk = document.getElementById("desk"), fmic = document.getElementById("fmic"), mbIcon = document.getElementById("mbIcon");
+  const [coilO, coilC] = document.querySelectorAll("#coil path");
+  function bez(p0, c1, c2, p3, u) {
+    const v = 1 - u, a = v * v * v, b = 3 * v * v * u, c = 3 * v * u * u, d = u * u * u;
+    return { x: a * p0.x + b * c1.x + c * c2.x + d * p3.x, y: a * p0.y + b * c1.y + c * c2.y + d * p3.y };
+  }
+  // The same coil as the app: loops spaced along a sagging curve, straight at both ends.
+  function coilPath(start, anchor, coils, radius) {
+    const dist = Math.hypot(anchor.x - start.x, anchor.y - start.y);
+    const c1 = { x: start.x, y: start.y + 30 + dist * 0.25 }, c2 = { x: anchor.x, y: anchor.y + 20 + dist * 0.3 };
+    const n = 60, base = [start], cum = [0];
+    for (let i = 1; i <= n; i++) {
+      const q = bez(start, c1, c2, anchor, i / n);
+      cum.push(cum[i - 1] + Math.hypot(q.x - base[i - 1].x, q.y - base[i - 1].y));
+      base.push(q);
+    }
+    const len = cum[n], count = Math.max(140, Math.round(len / 1.3));
+    let k = 0, d = "";
+    for (let i = 0; i <= count; i++) {
+      const u = i / count, s = u * len;
+      while (k < n - 1 && cum[k + 1] < s) k++;
+      const a = base[k], b = base[k + 1], seg = Math.max(cum[k + 1] - cum[k], 1e-4), t = (s - cum[k]) / seg;
+      const x = a.x + (b.x - a.x) * t, y = a.y + (b.y - a.y) * t, tx = (b.x - a.x) / seg, ty = (b.y - a.y) / seg;
+      const r = radius * Math.min(1, Math.max(0, Math.min(u / 0.05, (1 - u) / 0.05)));
+      const th = u * coils * 2 * Math.PI;
+      const px = x - ty * r * Math.sin(th) - tx * r * 0.9 * Math.cos(th);
+      const py = y + tx * r * Math.sin(th) - ty * r * 0.9 * Math.cos(th);
+      d += (i ? "L" : "M") + px.toFixed(1) + " " + py.toFixed(1);
+    }
+    return d;
+  }
+  function deskFrame(t) {
+    const W = desk.clientWidth, H = desk.clientHeight, mw = fmic.offsetWidth, mh = mw * 275 / 160;
+    const bob = reduce ? 0 : 1;
+    const cx = W * 0.64 + Math.sin(t * 0.55) * 7 * bob, cy = H * 0.5 + Math.sin(t * 0.9) * 5 * bob;
+    const left = cx - mw / 2, top = cy - mh / 2;
+    fmic.style.transform = "translate(" + left.toFixed(1) + "px," + top.toFixed(1) + "px)";
+    const exit = { x: left + mw * (110 - 20) / 160, y: top + mh * (300 - 30) / 275 };
+    const d = desk.getBoundingClientRect(), ic = mbIcon.getBoundingClientRect();
+    const anchor = { x: ic.left - d.left + ic.width / 2, y: ic.bottom - d.top - 2 };
+    const path = coilPath(exit, anchor, 24, 5);
+    coilO.setAttribute("d", path); coilC.setAttribute("d", path);
+  }
+
+  /* ---------- one loop, only for what's on screen ---------- */
+  const visible = new Set();
+  const io = "IntersectionObserver" in window ? new IntersectionObserver(entries => {
+    entries.forEach(en => { if (en.isIntersecting) visible.add(en.target); else visible.delete(en.target); });
+  }) : null;
+  if (io) { io.observe(board); io.observe(desk); } else { visible.add(board); visible.add(desk); }
+  boardFrame(); deskFrame(0);
+  let lastDesk = 0;
+  function loop() {
+    const t = now();
+    if (visible.has(board) || drag || talking) boardFrame();
+    if (visible.has(desk) && (!reduce || t - lastDesk > 1)) { deskFrame(t); lastDesk = t; }
+    requestAnimationFrame(loop);
+  }
+  requestAnimationFrame(loop);
+  window.addEventListener("resize", () => { pos = null; boardFrame(); deskFrame(now()); });
+  if (document.fonts && document.fonts.ready) document.fonts.ready.then(() => { pos = null; boardFrame(); deskFrame(now()); });
+})();
+</script>
+
+</html>
