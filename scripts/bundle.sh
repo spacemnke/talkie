@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Builds Talkie and wraps it into build/Talkie.app (ad-hoc signed) plus build/Talkie.zip.
+# Builds Talkie and wraps it into build/Talkie.app (ad-hoc signed), build/Talkie.zip and build/Talkie.dmg.
 # Usage: scripts/bundle.sh [debug|release]
 set -euo pipefail
 
@@ -21,4 +21,13 @@ fi
 
 codesign --force --deep --sign - "$APP"
 (cd build && ditto -c -k --keepParent Talkie.app Talkie.zip)
-echo "Built $APP"
+
+# A disk image with the app and a shortcut to Applications, ready to drag across.
+STAGE="build/dmg"
+mkdir -p "$STAGE"
+cp -R "$APP" "$STAGE/"
+ln -s /Applications "$STAGE/Applications"
+hdiutil create -volname "Talkie" -srcfolder "$STAGE" -ov -format UDZO "build/Talkie.dmg"
+rm -rf "$STAGE"
+
+echo "Built $APP, build/Talkie.zip and build/Talkie.dmg"

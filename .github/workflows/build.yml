@@ -5,6 +5,9 @@ on:
   pull_request:
   workflow_dispatch:
 
+permissions:
+  contents: write
+
 jobs:
   core:
     # The switchboard rules and physics don't need a Mac.
@@ -33,11 +36,26 @@ jobs:
       - name: Test
         run: swift test
 
-      - name: Package Talkie.app
+      - name: Package Talkie.app and Talkie.dmg
         run: scripts/bundle.sh release
 
       - uses: actions/upload-artifact@v4
         with:
-          name: Talkie-app
-          path: build/Talkie.zip
+          name: Talkie
+          path: |
+            build/Talkie.dmg
+            build/Talkie.zip
           retention-days: 14
+
+      # Keep one always-current download: Releases → "Talkie (latest build)" → Talkie.dmg
+      - name: Publish latest build
+        if: github.event_name != 'pull_request'
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh release delete latest --yes --cleanup-tag || true
+          gh release create latest build/Talkie.dmg \
+            --prerelease \
+            --target "$GITHUB_SHA" \
+            --title "Talkie (latest build)" \
+            --notes "Built from ${GITHUB_REF_NAME} at ${GITHUB_SHA::7}. Not notarized yet: the first time, open System Settings → Privacy & Security and click Open Anyway."

@@ -25,9 +25,12 @@ You need a Mac with macOS 14 or newer.
 swift run Talkie
 ```
 
-**As an app:** `scripts/bundle.sh` builds `build/Talkie.app`. Every push also builds one on GitHub
-Actions: open the latest run of the **Build** workflow and download the `Talkie-app` artifact.
-It isn't notarized yet, so the first time, right-click Talkie.app and choose **Open**.
+**As an app:** `scripts/bundle.sh` builds `build/Talkie.app` and `build/Talkie.dmg`. Every push
+also builds them on GitHub Actions and publishes the disk image as the **Talkie (latest build)**
+release: https://github.com/spacemnke/talkie/releases/tag/latest
+
+It isn't notarized yet. The first time you open it, macOS will refuse; open **System Settings →
+Privacy & Security** and click **Open Anyway** (or run `xattr -dr com.apple.quarantine /Applications/Talkie.app`).
 
 ## Try it
 
