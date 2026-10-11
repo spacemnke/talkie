@@ -6,13 +6,17 @@ set -euo pipefail
 CONFIG="${1:-release}"
 cd "$(dirname "$0")/.."
 
-swift build -c "$CONFIG"
-BIN="$(swift build -c "$CONFIG" --show-bin-path)"
+# Build for Apple Silicon and Intel, then join them into one universal binary.
+swift build -c "$CONFIG" --arch arm64
+swift build -c "$CONFIG" --arch x86_64
+BIN="$(swift build -c "$CONFIG" --arch arm64 --show-bin-path)"
+INTEL_BIN="$(swift build -c "$CONFIG" --arch x86_64 --show-bin-path)"
 
 APP="build/Talkie.app"
 rm -rf build
 mkdir -p "$APP/Contents/MacOS" "$APP/Contents/Resources"
-cp "$BIN/Talkie" "$APP/Contents/MacOS/Talkie"
+lipo -create "$BIN/Talkie" "$INTEL_BIN/Talkie" -output "$APP/Contents/MacOS/Talkie"
+lipo -info "$APP/Contents/MacOS/Talkie"
 cp Support/Info.plist "$APP/Contents/Info.plist"
 # Fonts ship inside the SwiftPM resource bundle; keep it under Resources so the app stays signable.
 if [ -d "$BIN/Talkie_Talkie.bundle" ]; then
