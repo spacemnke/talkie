@@ -52,6 +52,13 @@ Click the free jack (08) or the **FILE** key on the board.
   knobs, the scroll wheel or the arrow keys) to someone on the board and press **Eject**. Their card
   stays, so you can drag it back into the punch later. Nico, Bea and Tom are already in there.
 
+## Website
+
+The landing page lives in `site/` and goes out to **https://switchtalkie.com** through Cloudflare
+Workers Builds: every push to the connected branch runs `npx wrangler deploy` with `wrangler.jsonc`.
+`web/worker.js` sends `www.` to the bare domain and `/download` to the latest Talkie.dmg.
+Open `site/index.html` in a browser to preview it.
+
 ## Layout
 
 | Path | What's there |
@@ -60,5 +67,6 @@ Click the free jack (08) or the **FILE** key on the board.
 | `Sources/Talkie` | The Mac app: menu bar item, board window (SwiftUI), floating mic overlay, sounds. |
 | `Tests/TalkieCoreTests` | `swift test` |
 | `design/` | The interactive prototype and the decisions behind it. |
+| `site/`, `web/` | The website at switchtalkie.com and the Worker that serves it. |
 
 Fonts: [Jura](https://fonts.google.com/specimen/Jura) and [Doto](https://fonts.google.com/specimen/Doto), both under the SIL Open Font License (see `Sources/Talkie/Resources/Fonts`).

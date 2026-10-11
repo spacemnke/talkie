@@ -1,0 +1,16 @@
+// The website at switchtalkie.com, deployed by Cloudflare Workers Builds on every push.
+// The Worker in the Cloudflare dashboard must be named "switchtalkie" to match.
+{
+  "name": "switchtalkie",
+  "main": "web/worker.js",
+  "compatibility_date": "2026-10-09",
+  "assets": {
+    "directory": "./site",
+    "binding": "ASSETS",
+    "run_worker_first": true
+  },
+  "routes": [
+    { "pattern": "switchtalkie.com", "custom_domain": true },
+    { "pattern": "www.switchtalkie.com", "custom_domain": true }
+  ]
+}

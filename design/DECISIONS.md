@@ -23,6 +23,7 @@ a patch cord into their jack. The line opens instantly; there is no ringing and 
 | Eight friends | A board has eight jacks, so eight friends at a time. Everyone you have ever added keeps a line card in your Rolodex, so you can eject someone and punch an old card back in. |
 | Adding friends | A friend sends you their code (`TLK-7Q4F`). You check it in the card file, it issues a line card, and you drag the card into the punch. The punch reads it, accepts it, puts the friend on the next free jack and files the card in the Rolodex. Each code works once. |
 | Look | Light hardware grey, ink outlines, one signal orange. Thin uppercase type, dot-matrix LCD. |
+| Domain | **switchtalkie.com**: the switchboard plus the walkie-talkie, and the instant line between them. Hosts the landing page now and invite links later. |
 
 ## Still open
 
