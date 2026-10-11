@@ -1,0 +1,156 @@
+{
+  "name": "Talkie Relay redesign",
+  "palette": {
+    "paper": {
+      "value": "#F1F1EF",
+      "use": "Page and desktop background"
+    },
+    "shell": {
+      "value": "#D3D4D4",
+      "use": "Device body: the board, the punch, panels"
+    },
+    "plate": {
+      "value": "#E7E4DD",
+      "use": "Nameplates, line cards, the mic's lower body, menu bars"
+    },
+    "soft": {
+      "value": "#DCDCDA",
+      "use": "Quiet fills: the OUT tray, dividers, desktop dots"
+    },
+    "white": {
+      "value": "#FBFBF9",
+      "use": "Keys, jack faces, popovers"
+    },
+    "ink": {
+      "value": "#1B1B1B",
+      "use": "All outlines (2px), text, hard shadows"
+    },
+    "mute": {
+      "value": "#686865",
+      "use": "Secondary text and labels"
+    },
+    "orange": {
+      "value": "#E0663A",
+      "use": "The one signal colour: cord A, open lamps, talk key, card bands"
+    },
+    "orange-glow": {
+      "value": "rgba(224,102,58,0.35)",
+      "use": "Glow around a lamp while you talk"
+    },
+    "slate": {
+      "value": "#8B96A3",
+      "use": "Cord B, the mic's cord collar"
+    },
+    "key": {
+      "value": "#242424",
+      "use": "Dark keys, name strips, the cord well"
+    },
+    "lcd": {
+      "value": "#131313",
+      "use": "LCD background"
+    },
+    "lcd-text": {
+      "value": "#F1EDE3",
+      "use": "LCD main text"
+    },
+    "lcd-dim": {
+      "value": "#3A3A37",
+      "use": "Unlit LCD flags and meter bars"
+    },
+    "grille": {
+      "value": "#76787A",
+      "use": "Board speaker grille"
+    },
+    "mic-grille": {
+      "value": "#7D858D",
+      "use": "Mic grille"
+    },
+    "dot-ring": {
+      "value": "#4C535A",
+      "use": "Edge dots on the mic grille"
+    },
+    "pill": {
+      "value": "#9AA1A8",
+      "use": "LED columns on the mic"
+    },
+    "led-off": {
+      "value": "#8A9299",
+      "use": "Unlit LEDs"
+    },
+    "led-red": {
+      "value": "#D63A26",
+      "use": "Error LED"
+    },
+    "lamp-off": {
+      "value": "#B5B6B6",
+      "use": "Unlit jack lamps, the coiled cord's core"
+    },
+    "plug-shadow": {
+      "value": "#A7A8A9",
+      "use": "Plug shadows, card shadows"
+    },
+    "away": {
+      "value": "#A9A9A6",
+      "use": "Friends who are away"
+    },
+    "shadow": {
+      "value": "rgba(27,27,27,0.16)",
+      "use": "Hard offset shadows (no blur)"
+    }
+  },
+  "type": {
+    "display": {
+      "family": "Jura",
+      "weights": [
+        300,
+        400,
+        500,
+        600,
+        700
+      ],
+      "use": "Everything on the hardware: labels, keys, the TALKIE wordmark (Light 300 at large sizes). Uppercase with 0.06\u20130.16em letter-spacing."
+    },
+    "lcd": {
+      "family": "Doto",
+      "weights": [
+        600,
+        800
+      ],
+      "use": "Dot-matrix LCD text only: names, status lines, codes like TLK-7Q4F."
+    },
+    "web-body": {
+      "family": "Atkinson Hyperlegible",
+      "weights": [
+        400,
+        700
+      ],
+      "use": "Running paragraphs on the website only. Sentence case."
+    }
+  },
+  "shape": {
+    "outline": "2px ink on every object; 1.5px for inner details",
+    "radius": {
+      "window": "20pt",
+      "device": "12pt",
+      "line-card": "4px 14px 4px 4px",
+      "key": "5pt",
+      "inset-panel": "10\u201314pt"
+    },
+    "shadow": "Hard offset, no blur: 3px 4px for resting objects, 6px 8px for devices, 9px 13px for something held",
+    "key-press": "Keys sit on a 3\u20134px solid ink shadow and drop onto it when pressed"
+  },
+  "sizes-in-the-mac-app": {
+    "board-window": "520 \u00d7 698pt",
+    "jack-hole": "34pt",
+    "lamp": "11pt",
+    "plug": "36pt",
+    "line-card": "196 x 110pt",
+    "floating-mic": "110pt wide (160 x 275 drawing grid)",
+    "menu-bar-icon": "18pt template image",
+    "card-file-window": "800 \u00d7 618pt",
+    "incoming-popover": "330 \u00d7 349pt",
+    "effects-picker": "330 \u00d7 415pt",
+    "settings-window": "520 \u00d7 616pt",
+    "first-run-window": "580 \u00d7 477pt"
+  }
+}

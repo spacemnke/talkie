@@ -1,7 +1,8 @@
 # Talkie — design notes
 
-Open `design/prototype.html` in a browser for the interactive reference. This file records what the
-prototype settled, so the native app can match it.
+The app follows the **Relay** design in `design/relay/` (review boards, the handoff and an
+interactive prototype). `design/prototype.html` is the earlier prototype the features were worked
+out in. This file records what has been settled.
 
 ## The idea
 
@@ -15,14 +16,15 @@ a patch cord into their jack. The line opens instantly; there is no ringing and 
 | Opening a line | Instant. Plugging a cord into a friend's jack opens the line straight away. This is what sets Talkie apart. |
 | Do not disturb | Each person has a DND switch. A patch into someone on DND waits in the jack (lamp shows a dash) and opens the moment they switch DND off. Switching DND on during a call closes the line but leaves the cord in. |
 | Talking | Full duplex. Both people can talk at the same time, like a phone call. |
-| Mute | Private. The person who mutes sees it; the muted person's board never shows it. |
+| Mute | Private. Muting a friend only changes what you hear; nothing is sent to them and their board never shows it. It's kept per friend, so it lasts beyond the call. |
 | The mic | Lives in the menu bar when there is no call. When a line opens it drops onto the desktop on a coiled cord and floats above every app. Hold it (or a hotkey) to talk, drag or fling it anywhere, it remembers where you left it. Clicking the menu bar icon puts it away; pulling the last plug winds it back up automatically. |
 | Conference | Two cords. Plugging both into different friends makes a three-way line. |
 | Voice FX | Off, Canyon (echo), Tin can (thin, crunchy), Helium (octave up), Machine (ring-modulated). Applied before sending, so the friend hears them. |
 | Buzz | A key on the mic plays a call tone to everyone on an open line. |
 | Eight friends | A board has eight jacks, so eight friends at a time. Everyone you have ever added keeps a line card in your Rolodex, so you can eject someone and punch an old card back in. |
 | Adding friends | A friend sends you their code (`TLK-7Q4F`). You check it in the card file, it issues a line card, and you drag the card into the punch. The punch reads it, accepts it, puts the friend on the next free jack and files the card in the Rolodex. Each code works once. |
-| Look | Light hardware grey, ink outlines, one signal orange. Thin uppercase type, dot-matrix LCD. |
+| Look | **Relay.** Light hardware grey, ink outlines, one signal orange; Jura for the hardware, Doto for the LCD. Rounded device shells (20pt windows), inset panels, short raised keys (5pt corners on a 3pt ink base). |
+| The mic's shape | The Relay handset: a rounded body with a slotted grille, a round TALK key on the front, FX (orange) and buzz side keys, effect and level lights, and a name tag on a cord from the top. Replaces the earlier squeeze-handle mic. |
 | Domain | **switchtalkie.com**: the switchboard plus the walkie-talkie, and the instant line between them. Hosts the landing page now and invite links later. |
 
 ## Still open
@@ -30,22 +32,28 @@ a patch cord into their jack. The line opens instantly; there is no ringing and 
 - **Ejected means unreachable?** If only the eight people on your board can patch into you, ejecting someone also stops them reaching you, without telling them. The prototype assumes yes.
 - **Hear yourself?** Monitoring your own voice with effects is fun but can feed back through speakers. Maybe headphones only.
 - **iPhone?** iOS has Apple's Push to Talk framework. Mac first either way.
-- **The mic's look.** The squeeze handle is the closest remaining borrow from Teenage Engineering's FX-MIC. Fine for a prototype; change before shipping.
+- **The name.** Talkie, or Switchtalkie to match the domain?
 
-## Board anatomy
+## Board anatomy (Relay)
 
-- **Status strip:** SPKR lights while a friend talks, MIC lights while you talk.
-- **Nameplate + speaker grille.**
-- **LCD:** big line shows who is patched (`MAYA+OTTO`), small line shows state (`LINE A · OPEN · 00:42`, `PATCHING IN…`, `RUBY · DO NOT DISTURB · PATCH WAITS`), flags `A B TX RX FX DND`, and a 12-step level meter.
-- **Jack field:** 8 jacks. Each has a lamp, a number, a name strip with a presence dot (filled = online, hollow = away, dash = do not disturb) and the jack itself. A free jack reads `+ ADD`; clicking it opens the card file.
+- **Identity panel:** TALKIE / PATCH INTERCOM, a slotted speaker grille, and NET, MIC and SPKR lights.
+- **LCD** in a dark bezel: big line shows who is patched (`MAYA + OTTO`, or `READY TO PATCH`), small line shows state (`LINE A · OPEN · 00:42`, `PATCHING IN…`, `TWO CORDS · THREE PEOPLE`), flags `A B TX RX FX DND`, and a 12-step level meter.
+- **Socket panels:** eight, one per friend: number, lamp, name, the jack, and presence as a shape plus a word (`HERE`, `AWAY`, `DND`). A free socket reads `+ ADD`; clicking it opens the card file.
 - **Lamps:** off · blinking (connecting) · orange (open) · orange with glow (you're talking) · flicker (they're talking) · dash (do not disturb).
-- **Deck:** a well with cord A (orange) and cord B (slate), a volume knob, SND and DND keys.
+- **Deck:** the cord well with cord A (orange) and cord B (slate), a volume knob, and SND, DND and FILE keys.
+
+## Other windows (Relay)
+
+- **Open line:** appears under the menu bar icon when a friend patches in: their name and line time, a big hold-to-talk key, private mute and do not disturb.
+- **Voice effects:** the five effects with a line each.
+- **Settings:** microphone and output, a live input meter, push to talk, open at login, interaction sounds, reduce motion.
+- **Welcome:** three steps on first launch: meet Talkie, allow the microphone (with a path to System Settings if denied), share your code.
 
 ## Card file
 
-A second window, next to the board.
+A second window, next to the board: the card punch on the left, the Rolodex on the right.
 
-- **Your code** at the top, with a copy button, to send to friends however you like.
+- **Your code** across the top, with a copy button, to send to friends however you like.
 - **Code entry:** type a friend's code and press CHECK. The punch's LCD says `CHECKING`, then one of `CARD ISSUED`, `UNKNOWN CODE`, `ALREADY USED` or `YOUR OWN CODE`. An issued card drops into the OUT tray.
 - **Line card:** a punched card with the friend's name, the date added, a stamp with their jack (`JACK 03`) once they're on the board, and a hole pattern unique to them.
 - **The punch:** drag a card onto the slot (or click the card in the tray). It slides in, the LCD reads `READING ▮▮▮▯▯▯▯▯` with a chunk per step, then `ACCEPTED` (friend lands on the next free jack), `ON BOARD` (already there) or `BOARD FULL` (eject someone first).

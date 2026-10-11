@@ -4,13 +4,15 @@ A walkie-talkie for the Mac with a switchboard instead of a contact list. Drag a
 friend's jack and the line opens instantly. While a line is open, a mic drops out of the menu bar on
 a coiled cord and floats above every app: hold it (or ⌥Space) to talk.
 
-- **Design reference:** open [`design/prototype.html`](design/prototype.html) in a browser.
+- **Design:** the Relay redesign in [`design/relay/`](design/relay/) (review boards, handoff, and
+  `Talkie-Relay-Prototype.html` to open in a browser). The earlier prototype is `design/prototype.html`.
 - **Decisions so far:** [`design/DECISIONS.md`](design/DECISIONS.md).
 
 ## Status
 
-Step 1 of 3: the board. The switchboard window, patch cords with physics and haptics, the
-floating mic and the card file all work, with simulated friends and codes. There's no networking or real audio yet; the sounds
+Step 1 of 3: the board, in the Relay design. The switchboard, patch cords with physics and
+haptics, the floating Relay mic, the card file, the open-line panel, voice effects, settings and the
+welcome steps all work, with simulated friends and codes. There's no networking or real audio yet; the sounds
 are the board's own clicks and beeps.
 
 ## Run it
@@ -34,22 +36,26 @@ Privacy & Security** and click **Open Anyway** (or run `xattr -dr com.apple.quar
 
 ## Try it
 
-- Drag a plug into a friend's jack, or click a jack to send the next free cord flying in.
-- When the line opens the mic drops onto your screen. Hold it to talk, drag or fling it anywhere.
+- The first launch walks you through three welcome steps, including microphone access.
+- Drag a plug into a friend's jack, or click a socket to send the next free cord flying in.
+- When the line opens the mic drops onto your screen. Hold its TALK key (or anywhere on it) to
+  talk; drag or fling it anywhere. Its orange side key changes the effect; the grey one buzzes.
 - Space (while the board is in front) or ⌥Space (from any app) also talks. `F` changes the effect.
-- Click the menu bar icon to put the mic away or bring it back. Right-click it for more, including
-  **Simulate**: pick a friend on the board and have them patch in, talk, or switch do not disturb.
+- Click the menu bar icon to put the mic away or bring it back. Right-click it for the card file,
+  the open line, voice effects, settings (or ⌘,) and **Simulate**: pick a friend on the board and
+  have them patch in, talk, or switch do not disturb. When they patch in, the open-line panel
+  appears under the icon; muting them there only changes what you hear.
 
 ### The card file
 
-Click the free jack (08) or the **FILE** key on the board.
+Click the free socket (08) or the **FILE** key on the board.
 
 - Type a friend's code and press **Check**. `TLK-ZOE7` and `TLK-PIP3` work; `TLK-0000` doesn't. A line
   card drops into the OUT tray.
-- Drag the card onto the slot above the punch (or just click it). The punch reads it, puts the friend
+- Drag the card onto the card slot (or just click it). The punch reads it, puts the friend
   on the next free jack and files the card in the Rolodex.
 - The board holds eight friends. When it's full the punch refuses the card: turn the Rolodex (the
-  knobs, the scroll wheel or the arrow keys) to someone on the board and press **Eject**. Their card
+  knobs, the scroll wheel or the arrow keys) to someone on the board and press **Eject from board**. Their card
   stays, so you can drag it back into the punch later. Nico, Bea and Tom are already in there.
 
 ## Website
