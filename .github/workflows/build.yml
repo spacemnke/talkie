@@ -6,6 +6,16 @@ on:
   workflow_dispatch:
 
 jobs:
+  core:
+    # The switchboard rules and physics don't need a Mac.
+    runs-on: ubuntu-latest
+    container: swift:6.0
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - name: Test TalkieCore
+        run: swift test
+
   mac:
     runs-on: macos-15
     timeout-minutes: 30

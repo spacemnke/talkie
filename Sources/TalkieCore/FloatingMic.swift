@@ -1,5 +1,7 @@
 import Foundation
+#if canImport(CoreGraphics)
 import CoreGraphics
+#endif
 
 /// The mic that drops out of the menu bar when a line opens and floats above every app.
 /// Coordinates are the overlay's: origin at the top left of the screen, y pointing down.

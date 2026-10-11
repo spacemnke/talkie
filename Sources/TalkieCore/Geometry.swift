@@ -1,5 +1,18 @@
 import Foundation
+#if canImport(CoreGraphics)
 import CoreGraphics
+#else
+/// Linux's Foundation has CGPoint and CGRect but no CGVector; this lets the core build and test there too.
+public struct CGVector: Equatable, Sendable {
+    public var dx: CGFloat
+    public var dy: CGFloat
+    public init(dx: CGFloat, dy: CGFloat) {
+        self.dx = dx
+        self.dy = dy
+    }
+    public static let zero = CGVector(dx: 0, dy: 0)
+}
+#endif
 
 public extension CGPoint {
     func distance(to other: CGPoint) -> CGFloat {

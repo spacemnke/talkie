@@ -1,5 +1,7 @@
 import Foundation
+#if canImport(CoreGraphics)
 import CoreGraphics
+#endif
 
 /// A patch cord: it leaves its hole in the well, hangs in a curve, and ends at the plug.
 /// The two control points trail behind on springs, so the cord swings when the plug moves.

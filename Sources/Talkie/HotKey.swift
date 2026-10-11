@@ -24,7 +24,7 @@ final class HotKey {
             } else {
                 hotKey.onRelease()
             }
-            return noErr
+            return OSStatus(noErr)
         }, typeCount, &types, me, &handlerRef)
 
         let id = EventHotKeyID(signature: OSType(0x544C_4B45), id: 1) // 'TLKE'

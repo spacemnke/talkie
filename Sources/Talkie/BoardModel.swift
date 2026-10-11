@@ -33,7 +33,7 @@ final class BoardModel {
     private(set) var volume: Double = 0.7
     private(set) var soundOn = true
 
-    @ObservationIgnored let sound = SoundBoard()
+    let sound = SoundBoard()
     @ObservationIgnored var onFrame: (() -> Void)?
     @ObservationIgnored private var timer: Timer?
     @ObservationIgnored private var plugDrags: [CordID: PlugDrag] = [:]

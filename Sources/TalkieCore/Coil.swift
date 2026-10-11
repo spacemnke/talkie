@@ -1,5 +1,7 @@
 import Foundation
+#if canImport(CoreGraphics)
 import CoreGraphics
+#endif
 
 /// The mic's coiled cord: a fixed number of loops wound around a sagging curve,
 /// so pulling the mic further away stretches the coils open.
