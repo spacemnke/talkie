@@ -2,6 +2,7 @@
 import PackageDescription
 
 var products: [Product] = []
+var dependencies: [Package.Dependency] = []
 var targets: [Target] = [
     // Switchboard rules, cord and mic physics. No AppKit, so it builds and tests on any platform.
     .target(name: "TalkieCore"),
@@ -10,11 +11,20 @@ var targets: [Target] = [
 
 #if os(macOS)
 // The Mac app: menu bar item, switchboard window, floating mic.
+// Supabase is the operator (accounts, codes, boards, knocks); LiveKit carries the voices.
 products.append(.executable(name: "Talkie", targets: ["Talkie"]))
+dependencies += [
+    .package(url: "https://github.com/supabase/supabase-swift.git", exact: "2.55.3"),
+    .package(url: "https://github.com/livekit/client-sdk-swift.git", exact: "2.17.0")
+]
 targets.append(
     .executableTarget(
         name: "Talkie",
-        dependencies: ["TalkieCore"],
+        dependencies: [
+            "TalkieCore",
+            .product(name: "Supabase", package: "supabase-swift"),
+            .product(name: "LiveKit", package: "client-sdk-swift")
+        ],
         resources: [.copy("Resources/Fonts")]
     )
 )
@@ -24,5 +34,6 @@ let package = Package(
     name: "Talkie",
     platforms: [.macOS(.v14)],
     products: products,
+    dependencies: dependencies,
     targets: targets
 )

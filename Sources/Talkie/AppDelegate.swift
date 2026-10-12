@@ -38,6 +38,12 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         }
         // The mic's settings key: mute, do not disturb, effects and hanging up, right where you talk.
         model.onMicMenu = { [weak self] point in self?.showMicMenu(at: point) }
+        // CI opens the packaged app once to prove it starts (its frameworks load), then quits.
+        if ProcessInfo.processInfo.environment["TALKIE_SMOKE_TEST"] != nil {
+            print("Talkie started")
+            DispatchQueue.main.asyncAfter(deadline: .now() + 1) { NSApp.terminate(nil) }
+            return
+        }
         model.start()
         let firstRun = !UserDefaults.standard.bool(forKey: Self.finishedWelcome)
         if firstRun { showWelcome() } else { showBoard() }
@@ -326,6 +332,11 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
 
     private func showMenu() {
         let menu = NSMenu()
+        // Where you are: online with your code, or on the practice board.
+        let whereabouts = NSMenuItem(title: whereabouts(), action: nil, keyEquivalent: "")
+        whereabouts.isEnabled = false
+        menu.addItem(whereabouts)
+        menu.addItem(.separator())
         add(menu, "Open Switchboard", #selector(showBoard))
         add(menu, "Add a Friend…", #selector(addFriend))
         add(menu, "Voice Effects…", #selector(showEffects))
@@ -333,8 +344,32 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         add(menu, "Do Not Disturb", #selector(toggleDoNotDisturb)).state = model.board.doNotDisturb ? .on : .off
         add(menu, "Next Effect (\(model.board.effect.next.title.capitalized))", #selector(nextEffect))
         menu.addItem(.separator())
+        add(menu, "Practice Board", #selector(togglePractice)).state = model.practice ? .on : .off
+        if model.practice { addSimulateMenu(to: menu) }
 
-        // Pretend to be a friend on the board: patch in, talk, or switch do not disturb.
+        menu.addItem(.separator())
+        add(menu, "Settings…", #selector(showSettings))
+        add(menu, "Welcome to Talkie…", #selector(showWelcome))
+        add(menu, "Quit Talkie", #selector(quit))
+
+        statusItem?.menu = menu
+        statusItem?.button?.performClick(nil)
+        statusItem?.menu = nil
+    }
+
+    private func whereabouts() -> String {
+        if model.practice { return "Practice board: simulated friends" }
+        switch model.online?.status {
+        case .online(let code)?: return "Online as \(code)"
+        case .offline(let reason)?: return "Offline: \(reason.capitalized)"
+        default: return "Connecting…"
+        }
+    }
+
+    @objc private func togglePractice() { model.setPractice(!model.practice) }
+
+    /// Pretend to be a friend on the practice board: knock, talk, or switch do not disturb.
+    private func addSimulateMenu(to menu: NSMenu) {
         let simulate = NSMenuItem(title: "Simulate", action: nil, keyEquivalent: "")
         let friends = NSMenu()
         for (jack, friend) in model.board.friends.enumerated() {
@@ -364,15 +399,6 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         }
         simulate.submenu = friends
         menu.addItem(simulate)
-
-        menu.addItem(.separator())
-        add(menu, "Settings…", #selector(showSettings))
-        add(menu, "Welcome to Talkie…", #selector(showWelcome))
-        add(menu, "Quit Talkie", #selector(quit))
-
-        statusItem?.menu = menu
-        statusItem?.button?.performClick(nil)
-        statusItem?.menu = nil
     }
 
     @discardableResult

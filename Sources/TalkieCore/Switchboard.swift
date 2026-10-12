@@ -73,6 +73,9 @@ public struct Switchboard: Equatable, Sendable {
     public private(set) var friends: [Friend?]
     /// Your code, for friends to add you with.
     public let myCode: String
+    /// The practice board: friends are simulated and answer back on their own. Off for real lines,
+    /// where everything the other end does arrives from the network, and one line is open at a time.
+    public let simulated: Bool
     /// Set while the board is taking a friend's code.
     public private(set) var adding: Adding?
     public private(set) var patches: [CordID: Patch] = [:]
@@ -98,9 +101,10 @@ public struct Switchboard: Equatable, Sendable {
     /// The friend you last patched or who last patched you; they're the one who answers back.
     public private(set) var focus: Int?
 
-    public init(friends: [Friend?] = Friend.samples, myCode: String = "TLK-7Q4F") {
+    public init(friends: [Friend?] = Friend.samples, myCode: String = "TLK-7Q4F", simulated: Bool = true) {
         self.friends = friends
         self.myCode = myCode
+        self.simulated = simulated
     }
 
     // MARK: Lookups
@@ -185,6 +189,10 @@ public struct Switchboard: Equatable, Sendable {
         }
         if let other = self.cord(at: jack), other != cord {
             say("BUSY", "CORD \(other.label) IS IN \(f.name)", now: now)
+            return [.denied]
+        }
+        if !simulated, let busy = busyElsewhere(than: jack, moving: cord) {
+            say("ONE LINE AT A TIME", "HANG UP ON \(busy) FIRST", now: now)
             return [.denied]
         }
         let was = wantsMic
@@ -293,7 +301,19 @@ public struct Switchboard: Equatable, Sendable {
     /// Let a knocking friend in: the line opens and you can talk straight away.
     public mutating func letIn(_ jack: Int, now: TimeInterval) -> [BoardEvent] {
         let was = wantsMic
-        guard knocks.removeValue(forKey: jack) != nil || heldKnocks.remove(jack) != nil, let f = friend(jack) else { return [] }
+        guard knocks[jack] != nil || heldKnocks.contains(jack), let f = friend(jack) else { return [] }
+        if !simulated {
+            // One line at a time: an open line has to end first; your own knock gives way.
+            if let busy = openJacks.first(where: { $0 != jack }).flatMap({ friend($0)?.name }) {
+                say("ONE LINE AT A TIME", "HANG UP ON \(busy) FIRST", now: now)
+                return [.denied]
+            }
+            for c in CordID.allCases where patches[c]?.status == .knocking && patches[c]?.jack != jack {
+                patches[c] = nil
+            }
+        }
+        knocks[jack] = nil
+        heldKnocks.remove(jack)
         incoming[jack] = now
         focus = jack
         say(f.name, "LET IN · LINE OPEN", now: now)
@@ -308,6 +328,34 @@ public struct Switchboard: Equatable, Sendable {
         return [.click] + micTransition(was)
     }
 
+    /// The friend who knocked on you gave up (or their knock ran out) before you answered.
+    public mutating func friendStoppedKnocking(_ jack: Int, now: TimeInterval) -> [BoardEvent] {
+        let was = wantsMic
+        guard knocks.removeValue(forKey: jack) != nil || heldKnocks.remove(jack) != nil else { return [] }
+        if let f = friend(jack) { say(f.name, "KNOCKED · MISSED", now: now, for: 4) }
+        return micTransition(was)
+    }
+
+    /// The friend on a line hung up (or their connection dropped). Your cord comes out.
+    public mutating func friendHungUp(_ jack: Int, now: TimeInterval) -> [BoardEvent] {
+        let was = wantsMic
+        var closed = false
+        if let c = cord(at: jack), patches[c]?.status == .open {
+            patches[c] = nil
+            closed = true
+        }
+        if incoming.removeValue(forKey: jack) != nil { closed = true }
+        guard closed else { return [] }
+        clearFriend(jack)
+        if let f = friend(jack) { say(f.name, "HUNG UP", now: now, for: 2.4) }
+        return [.lineClosed] + micTransition(was)
+    }
+
+    /// Who's actually talking on a line, as heard over the network.
+    public mutating func setFriendTalking(_ jack: Int, _ on: Bool) {
+        if on, isLineOpen(jack) { friendTalking.insert(jack) } else { friendTalking.remove(jack) }
+    }
+
     /// Someone who isn't on your board (an ejected friend, say) tries to knock. Only the eight on your
     /// board can knock, so nothing rings; you get a note, and adding their code lets them in.
     /// On their side you just don't answer.
@@ -317,6 +365,20 @@ public struct Switchboard: Equatable, Sendable {
     }
 
     // MARK: Who's on the board
+
+    /// Your board as the server has it. Lines and knocks on jacks whose friend changed are dropped.
+    public mutating func loadBoard(_ board: [Friend?]) {
+        var next = Array(board.prefix(8))
+        while next.count < 8 { next.append(nil) }
+        for jack in next.indices where next[jack]?.id != friends[jack]?.id {
+            if let c = cord(at: jack) { patches[c] = nil }
+            incoming[jack] = nil
+            knocks[jack] = nil
+            heldKnocks.remove(jack)
+            clearFriend(jack)
+        }
+        friends = next
+    }
 
     /// Get ready for a friend's code. They'll go on `jack` if it's free, otherwise the first free jack.
     public mutating func startAdding(at jack: Int? = nil) -> [BoardEvent] {
@@ -430,7 +492,7 @@ public struct Switchboard: Equatable, Sendable {
         var events: [BoardEvent] = []
         if !openJacks.isEmpty { events.append(.over) }
         // Simulated friend: whoever you're focused on answers, if they heard you.
-        if let jack = focus, isLineOpen(jack), !mutedYou.contains(jack), !friendTalking.contains(jack) {
+        if simulated, let jack = focus, isLineOpen(jack), !mutedYou.contains(jack), !friendTalking.contains(jack) {
             let start = now + Self.replyDelay
             replies[jack] = start...(start + Self.replyLength)
         }
@@ -475,7 +537,19 @@ public struct Switchboard: Equatable, Sendable {
         return events + micTransition(was)
     }
 
-    // MARK: The other end (simulated until there's a network)
+    // MARK: The other end (simulated on the practice board, from the network otherwise)
+
+    /// A friend's Talkie came online or went away. A cord left in their jack while they were away
+    /// knocks when they're back.
+    public mutating func setFriendOnline(_ jack: Int, _ online: Bool, now: TimeInterval) -> [BoardEvent] {
+        guard var f = friend(jack), f.online != online else { return [] }
+        f.online = online
+        friends[jack] = f
+        guard online, let c = cord(at: jack), patches[c]?.status == .offline else { return [] }
+        patches[c]?.status = f.doNotDisturb ? .waitingDND : .knocking
+        patches[c]?.since = now
+        return f.doNotDisturb ? [] : [.knockOut]
+    }
 
     public mutating func setFriendDoNotDisturb(_ jack: Int, _ on: Bool, now: TimeInterval) -> [BoardEvent] {
         guard var f = friend(jack), f.online, f.doNotDisturb != on else { return [] }
@@ -575,6 +649,10 @@ public struct Switchboard: Equatable, Sendable {
         if !knocking.isEmpty {
             return Readout(big: knocking.map(name).joined(separator: " + "), sub: "KNOCKING · CLICK THE JACK TO LET IN")
         }
+        // A brand-new board: say how to fill it.
+        if friends.allSatisfy({ $0 == nil }) {
+            return Readout(big: "EMPTY BOARD", sub: "PRESS ADD · YOUR CODE IS \(myCode)")
+        }
         let corded = CordID.allCases.compactMap { c in patches[c].map { (cord: c, patch: $0) } }
         let names = corded.map { name($0.patch.jack) } + incoming.keys.sorted().map(name)
         let big = names.isEmpty ? "READY TO PATCH" : names.joined(separator: " + ")
@@ -626,6 +704,14 @@ public struct Switchboard: Equatable, Sendable {
     }
 
     // MARK: Helpers
+
+    /// On a real board, the name of whoever you're already on a line with or knocking on, other than
+    /// `jack`. The cord being moved doesn't count: its old line ends when it comes out.
+    private func busyElsewhere(than jack: Int, moving cord: CordID) -> String? {
+        let leaving = patches[cord]?.jack
+        let busy = openJacks + knockingOut
+        return busy.first { $0 != jack && $0 != leaving }.flatMap { friend($0)?.name }
+    }
 
     private mutating func clearFriend(_ jack: Int) {
         friendTalking.remove(jack)

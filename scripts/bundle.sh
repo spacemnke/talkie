@@ -24,7 +24,30 @@ if [ -d "$BIN/Talkie_Talkie.bundle" ]; then
   cp -R "$BIN/Talkie_Talkie.bundle" "$APP/Contents/Resources/"
 fi
 
+# LiveKit's WebRTC (and anything else linked dynamically) ships as frameworks next to the binary.
+# They're universal already, so the Apple silicon build's copies serve both.
+mkdir -p "$APP/Contents/Frameworks"
+for framework in "$BIN"/*.framework; do
+  if [ -d "$framework" ]; then cp -R "$framework" "$APP/Contents/Frameworks/"; fi
+done
+install_name_tool -add_rpath "@executable_path/../Frameworks" "$APP/Contents/MacOS/Talkie"
+ls "$APP/Contents/Frameworks"
+
 codesign --force --deep --sign - "$APP"
+
+# Open it once: if a framework is missing, dyld stops it here instead of on your Mac.
+TALKIE_SMOKE_TEST=1 "$APP/Contents/MacOS/Talkie" &
+SMOKE=$!
+for _ in $(seq 1 30); do
+  kill -0 "$SMOKE" 2>/dev/null || break
+  sleep 1
+done
+if kill -0 "$SMOKE" 2>/dev/null; then
+  kill "$SMOKE"
+  echo "Talkie didn't quit after its launch check" >&2
+  exit 1
+fi
+wait "$SMOKE"
 (cd build && ditto -c -k --keepParent Talkie.app Talkie.zip)
 
 # A disk image with the app and a shortcut to Applications, ready to drag across.

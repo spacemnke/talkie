@@ -10,6 +10,10 @@ import TalkieCore
 final class BoardModel {
     // Switchboard state (changes on events)
     private(set) var board = Switchboard()
+    /// The practice board, with simulated friends. Otherwise your real board, through the operator.
+    private(set) var practice = false
+    /// Talkie's operator (accounts, codes, knocks and the voice line). Nil on the practice board.
+    @ObservationIgnored private(set) var online: Operator?
 
     // Patch cords, in the board window's coordinates
     private(set) var cords: [CordID: CordSim] = [.a: CordSim(), .b: CordSim()]
@@ -62,6 +66,7 @@ final class BoardModel {
         static let volume = "volume"
         static let micHome = "micHome"
         static let muted = "mutedFriends"
+        static let practice = "practiceBoard"
     }
     @ObservationIgnored private var timer: Timer?
     @ObservationIgnored private var plugDrags: [CordID: PlugDrag] = [:]
@@ -87,11 +92,8 @@ final class BoardModel {
     private var reduceMotion: Bool { NSWorkspace.shared.accessibilityDisplayShouldReduceMotion }
 
     init() {
-        // Start like the prototype: cord A is in Maya's jack and she has let you in (simulated friend).
-        let t = now
-        _ = board.patch(.a, into: 0, now: t - 3)
-        _ = board.friendAnswers(0, now: t - 3)
-        _ = board.tick(now: t)
+        practice = UserDefaults.standard.bool(forKey: Saved.practice)
+        board = practice ? Self.practiceBoard(now: ProcessInfo.processInfo.systemUptime) : Self.waitingBoard
 
         // What you set last time: sound, volume, who you muted, where you left the mic.
         if defaults.object(forKey: Saved.soundOn) != nil { soundOn = defaults.bool(forKey: Saved.soundOn) }
@@ -109,6 +111,66 @@ final class BoardModel {
         }
         RunLoop.main.add(timer, forMode: .common)
         self.timer = timer
+        if !practice { goOnline() }
+    }
+
+    // MARK: Practice board or the real one
+
+    /// Like the prototype: cord A is in Maya's jack and she has let you in.
+    private static func practiceBoard(now t: TimeInterval) -> Switchboard {
+        var b = Switchboard()
+        _ = b.patch(.a, into: 0, now: t - 3)
+        _ = b.friendAnswers(0, now: t - 3)
+        _ = b.tick(now: t)
+        return b
+    }
+
+    /// Your real board before the operator has answered: empty, with no code yet.
+    private static var waitingBoard: Switchboard {
+        Switchboard(friends: Array(repeating: nil, count: 8), myCode: "TLK-····", simulated: false)
+    }
+
+    func setPractice(_ on: Bool) {
+        guard on != practice else { return }
+        practice = on
+        defaults.set(on, forKey: Saved.practice)
+        stowMic()
+        if on {
+            online?.disconnect()
+            online = nil
+            replaceBoard(Self.practiceBoard(now: now))
+            dropMic()
+        } else {
+            replaceBoard(Self.waitingBoard)
+            goOnline()
+        }
+    }
+
+    private func goOnline() {
+        let op = online ?? Operator(model: self)
+        online = op
+        apply { $0.say("CONNECTING", "CALLING THE OPERATOR", now: now, for: 10); return [] }
+        op.connect()
+    }
+
+    /// The operator answered: here's your code and your board.
+    func operatorConnected(code: String, friends: [Friend?]) {
+        var b = Switchboard(friends: friends, myCode: code, simulated: false)
+        b.setMutedFriends(board.muted)
+        b.say("ONLINE", "YOUR CODE IS \(code)", now: now, for: 3)
+        replaceBoard(b)
+    }
+
+    func operatorFailed(_ reason: String) {
+        apply { $0.say("OFFLINE", reason, now: now, for: 8); return [] }
+    }
+
+    /// A whole new board (practice or real): cords go home, nothing is sent anywhere.
+    private func replaceBoard(_ b: Switchboard) {
+        var next = b
+        next.setMutedFriends(board.muted)
+        board = next
+        resnapCords()
     }
 
     // MARK: Frame
@@ -117,9 +179,13 @@ final class BoardModel {
         let t = now
         var b = board
         let events = b.tick(now: t)
-        if b != board { board = b }
+        if b != board {
+            let old = board
+            board = b
+            online?.sync(from: old, to: b)
+        }
         handle(events)
-        answerKnocks(t)
+        if practice { answerKnocks(t) }
         // A knock keeps knocking until you answer it.
         if !board.knocks.isEmpty, t - lastKnockSound >= 3 { playKnock(t) }
 
@@ -189,9 +255,11 @@ final class BoardModel {
 
     /// Changes the board and plays whatever the change calls for.
     func apply(_ change: (inout Switchboard) -> [BoardEvent]) {
+        let old = board
         var b = board
         let events = change(&b)
         board = b
+        online?.sync(from: old, to: b)
         handle(events)
     }
 
@@ -264,9 +332,11 @@ final class BoardModel {
     }
 
     func tapJack(_ jack: Int) {
+        let old = board
         var b = board
         let result = b.tapJack(jack, now: now)
         board = b
+        online?.sync(from: old, to: b)
         if let flying = result.cord {
             // The plug flies over; it clicks when it lands.
             raise(flying)
@@ -324,21 +394,35 @@ final class BoardModel {
         guard !checking else { return }
         let raw = codeText
         guard let code = InviteCode.normalize(raw) else {
-            finishCheck(raw)
+            finishCheck(raw, found: nil)
             return
         }
         checking = true
-        apply { $0.say("CHECKING", code, now: now, for: 3); return [.keyClick] }
-        DispatchQueue.main.asyncAfter(deadline: .now() + (reduceMotion ? 0.1 : 0.7)) { [weak self] in
-            MainActor.assumeIsolated { self?.finishCheck(raw) }
+        apply { $0.say("CHECKING", code, now: now, for: 10); return [.keyClick] }
+        guard let online, code != board.myCode else {
+            // The practice board's codes, after a moment.
+            DispatchQueue.main.asyncAfter(deadline: .now() + (reduceMotion ? 0.1 : 0.7)) { [weak self] in
+                MainActor.assumeIsolated { self?.finishCheck(raw, found: Invite.lookup(code)) }
+            }
+            return
+        }
+        Task {
+            do {
+                let found = try await online.lookUp(code)
+                finishCheck(raw, found: found)
+            } catch {
+                checking = false
+                focusRequest += 1
+                apply { $0.say("CAN'T CHECK", Operator.describe(error), now: now, for: 3); return [.denied] }
+            }
         }
     }
 
-    private func finishCheck(_ raw: String) {
+    private func finishCheck(_ raw: String, found: Invite?) {
         checking = false
         var result = CodeResult.empty
         apply { b in
-            let out = b.enterCode(raw, now: now, lookup: Invite.lookup)
+            let out = b.enterCode(raw, now: now) { _ in found }
             result = out.result
             return out.events
         }
@@ -346,6 +430,7 @@ final class BoardModel {
             codeText = ""
             sound.play(.accept)
             flashArrival(jack)
+            if let id = board.friend(jack)?.id { online?.saveFriend(id, jack: jack) }
         } else {
             // Leave what they typed so they can fix it.
             focusRequest += 1
@@ -354,7 +439,9 @@ final class BoardModel {
 
     /// Takes a friend off the board. Their code still works to bring them back.
     func eject(_ jack: Int) {
+        let id = board.friend(jack)?.id
         apply { $0.removeFriend(at: jack, now: now) }
+        if let id { online?.removeFriend(id) }
     }
 
     func copyMyCode() {
@@ -437,7 +524,24 @@ final class BoardModel {
 
     func cycleEffect() { apply { $0.cycleEffect(now: now) } }
     func setEffect(_ e: Effect) { apply { $0.setEffect(e, now: now) } }
-    func buzz() { apply { $0.buzz(now: now) } }
+    func buzz() {
+        let before = board.buzzing
+        apply { $0.buzz(now: now) }
+        if board.buzzing != before { online?.buzz() }
+    }
+
+    /// A friend on the line pressed their buzz key.
+    func friendBuzzed(_ jack: Int) {
+        sound.play(.buzz)
+        let name = board.friend(jack)?.name ?? "BUZZ"
+        apply { $0.say(name, "BUZZED YOU", now: now, for: 1.7); return [] }
+    }
+
+    /// Someone who isn't on your board tried to knock. Nothing rings; ADD will offer their code.
+    func noteOffBoardKnock(name: String, code: String) {
+        lastKnock = (code, now)
+        apply { $0.offBoardKnock(from: name, now: now) }
+    }
     func toggleDoNotDisturb() { apply { $0.setDoNotDisturb(!$0.doNotDisturb, now: now) } }
 
     func toggleSound() {
