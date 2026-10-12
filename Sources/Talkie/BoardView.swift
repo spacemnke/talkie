@@ -24,13 +24,22 @@ extension CGRect {
 }
 
 /// The switchboard: identity panel, LCD, eight socket panels and the deck, with the cords on top.
+/// While you add a friend, the identity panel turns into the code entry; the LCD says how it went.
 struct BoardView: View {
     let model: BoardModel
 
     var body: some View {
         DeviceWindow(title: "SWITCHBOARD") {
             VStack(spacing: 0) {
-                IdentityPanel(model: model).frame(height: 91)
+                ZStack {
+                    if model.isAdding {
+                        AddPanel(model: model).transition(.opacity)
+                    } else {
+                        IdentityPanel(model: model).transition(.opacity)
+                    }
+                }
+                .frame(height: 91)
+                .animation(.easeOut(duration: 0.15), value: model.isAdding)
                 LCDPanel(model: model).frame(height: 119).padding(.top, 14)
                 SocketField(model: model).padding(.top, 18)
                 Deck(model: model).frame(height: 104).padding(.top, 28)
@@ -140,6 +149,120 @@ private struct Screw: View {
     }
 }
 
+// MARK: Adding a friend
+
+/// Takes a friend's code, and shows yours (with a copy key and your line card to send).
+private struct AddPanel: View {
+    @Bindable var model: BoardModel
+    @FocusState private var codeFocused: Bool
+    @State private var cardAnchor = ShareAnchorBox()
+
+    var body: some View {
+        HStack(alignment: .top, spacing: 0) {
+            VStack(alignment: .leading, spacing: 0) {
+                PanelCaption(text: "A FRIEND'S CODE")
+                HStack(spacing: 8) {
+                    TextField("Code", text: $model.codeText, prompt: Text("TLK-····"))
+                        .textFieldStyle(.plain)
+                        .font(Fonts.lcd(17))
+                        .foregroundStyle(Palette.ink)
+                        .padding(.horizontal, 11)
+                        .frame(width: 166, height: 34)
+                        .background(RoundedRectangle(cornerRadius: Radius.key, style: .continuous).fill(Palette.white))
+                        .overlay(RoundedRectangle(cornerRadius: Radius.key, style: .continuous).strokeBorder(Palette.ink, lineWidth: 1.3))
+                        .focused($codeFocused)
+                        .onSubmit { model.checkCode() }
+                        .onExitCommand { model.stopAdding() }
+                        .onChange(of: model.codeText) { _, text in model.tidyCode(text) }
+                        .accessibilityLabel("A friend's code")
+                    Button { model.checkCode() } label: {
+                        Text(model.checking ? "· · ·" : "CHECK").frame(width: 66, height: 34)
+                    }
+                    .buttonStyle(RelayKeyStyle())
+                    .disabled(model.checking)
+                }
+                .padding(.top, 7)
+                tryRow.padding(.top, 7)
+            }
+            .padding(.leading, 16)
+
+            Rectangle().fill(Palette.ink).frame(width: 1, height: 64).padding(.horizontal, 14)
+
+            VStack(alignment: .leading, spacing: 0) {
+                PanelCaption(text: "YOUR CODE")
+                Text(model.board.myCode)
+                    .font(Fonts.lcd(17))
+                    .tracking(1.2)
+                    .foregroundStyle(Palette.ink)
+                    .textSelection(.enabled)
+                    .padding(.top, 5)
+                HStack(spacing: 6) {
+                    Button { model.copyMyCode() } label: { Text("COPY").frame(width: 52, height: 22) }
+                        .buttonStyle(RelayKeyStyle())
+                        .accessibilityLabel("Copy your code")
+                    Button { model.sendMyCard(from: cardAnchor.view) } label: { Text("SEND CARD").frame(width: 88, height: 22) }
+                        .buttonStyle(RelayKeyStyle())
+                        .background(ShareAnchor(box: cardAnchor))
+                        .accessibilityLabel("Send your line card")
+                        .accessibilityHint("Shares a picture of your card with your code, to Messages, Mail or AirDrop.")
+                }
+                .padding(.top, 8)
+            }
+
+            Spacer(minLength: 0)
+            Button { model.stopAdding() } label: {
+                Text("×").font(Fonts.jura(14, "SemiBold")).frame(width: 22, height: 22)
+            }
+            .buttonStyle(RelayKeyStyle())
+            .padding(.trailing, 10)
+            .accessibilityLabel("Done adding")
+        }
+        .padding(.top, 13)
+        .foregroundStyle(Palette.ink)
+        .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
+        .insetPanel()
+        .onAppear { codeFocused = true }
+        .onChange(of: model.focusRequest) { _, _ in codeFocused = true }
+    }
+
+    // Until there's a server, these are codes the sample friends could have sent you.
+    private var tryRow: some View {
+        HStack(spacing: 6) {
+            Text("TRY")
+                .font(Fonts.jura(8, "SemiBold"))
+                .tracking(1)
+                .foregroundStyle(Palette.mute)
+            ForEach(["TLK-ZOE7", "TLK-PIP3", "TLK-NICO"], id: \.self) { code in
+                Button {
+                    model.codeText = code
+                    model.checkCode()
+                } label: {
+                    Text(code)
+                        .font(Fonts.jura(8.5, "Bold"))
+                        .tracking(0.6)
+                        .padding(.horizontal, 5)
+                        .padding(.vertical, 2)
+                        .overlay(RoundedRectangle(cornerRadius: 3).strokeBorder(Palette.mute, lineWidth: 1))
+                        .contentShape(Rectangle())
+                }
+                .buttonStyle(.plain)
+            }
+        }
+        .frame(height: 16)
+    }
+}
+
+private struct PanelCaption: View {
+    let text: String
+
+    var body: some View {
+        Text(text)
+            .font(Fonts.jura(9, "SemiBold"))
+            .tracking(1.2)
+            .foregroundStyle(Palette.mute)
+    }
+}
+
 // MARK: LCD
 
 private struct LCDPanel: View {
@@ -244,6 +367,8 @@ private struct SocketPanel: View {
     var body: some View {
         let friend = model.board.friend(index)
         let arriving = model.arriving == index
+        // While you add a friend, the jack they'll go on lights up.
+        let target = model.isAdding && model.board.addingJack == index
         let shape = RoundedRectangle(cornerRadius: Radius.inset, style: .continuous)
         Button {
             model.tapJack(index)
@@ -265,12 +390,12 @@ private struct SocketPanel: View {
                     .tracking(1)
                     .lineLimit(1)
                     .minimumScaleFactor(0.7)
-                    .foregroundStyle(nameColor(friend))
+                    .foregroundStyle(target ? Palette.orange : nameColor(friend))
                     .frame(height: 16)
                     .padding(.horizontal, 8)
                     .padding(.top, 7)
 
-                SocketHole(near: model.nearJack == index, free: friend == nil)
+                SocketHole(near: model.nearJack == index || target, free: friend == nil)
                     .background(GeometryReader { g in
                         Color.clear.preference(key: HoleKey.self, value: [index: g.frame(in: .named(BoardSpace.name)).center])
                     })
@@ -287,8 +412,20 @@ private struct SocketPanel: View {
             .contentShape(shape)
         }
         .buttonStyle(.plain)
+        .contextMenu {
+            if let friend {
+                Button("Eject \(friend.name.capitalized) from the Board") { model.eject(index) }
+            } else {
+                Button("Add a Friend Here") { model.startAdding(at: index) }
+            }
+        }
         .accessibilityLabel(accessibilityText(friend))
-        .accessibilityHint(friend == nil ? "Opens the card file." : "Patches the next free cord into this jack, or pulls it out.")
+        .accessibilityHint(friend == nil ? "Adds a friend here: type their code." : "Patches the next free cord into this jack, or pulls it out.")
+        .accessibilityActions {
+            if friend != nil {
+                Button("Eject from the board") { model.eject(index) }
+            }
+        }
     }
 
     private func nameColor(_ friend: Friend?) -> Color {
@@ -297,7 +434,7 @@ private struct SocketPanel: View {
     }
 
     private func accessibilityText(_ friend: Friend?) -> String {
-        guard let friend else { return "Jack \(index + 1): free, add a friend in the card file" }
+        guard let friend else { return "Jack \(index + 1): free" }
         let presence: String
         switch friend.presence {
         case .online: presence = "here"
@@ -406,6 +543,7 @@ private struct Deck: View {
 
     var body: some View {
         let dnd = model.board.doNotDisturb
+        let adding = model.isAdding
         HStack(alignment: .top, spacing: 0) {
             CordWell()
                 .frame(width: 175, height: 78)
@@ -416,9 +554,9 @@ private struct Deck: View {
             HStack(alignment: .top, spacing: 11) {
                 DeckKey(title: "SND", caption: model.soundOn ? "SOUND ON" : "SOUND OFF", width: 54) { model.toggleSound() }
                 DeckKey(title: "DND", caption: dnd ? "DND ON" : "AVAILABLE", width: 54, lit: dnd) { model.toggleDoNotDisturb() }
-                DeckKey(title: "FILE", caption: "CARDS", width: 65) { model.openCardFile() }
-                    .accessibilityLabel("Card file")
-                    .accessibilityHint("Add friends with their codes, and keep their cards.")
+                DeckKey(title: "ADD", caption: adding ? "ADDING" : "ADD FRIEND", width: 65, lit: adding) { model.toggleAdding() }
+                    .accessibilityLabel("Add a friend")
+                    .accessibilityHint("Type a friend's code to put them on your board.")
             }
             .padding(EdgeInsets(top: 13, leading: 12, bottom: 0, trailing: 0))
             Spacer(minLength: 0)
@@ -526,48 +664,5 @@ private struct VolumeKnob: View {
                 .tracking(0.8)
                 .foregroundStyle(Palette.mute)
         }
-    }
-}
-
-// MARK: Keys shared with the card file
-
-struct KeyFace: View {
-    let title: String
-    let detail: String
-    let lit: Bool
-
-    var body: some View {
-        VStack(alignment: .leading) {
-            HStack {
-                Text(title).font(Fonts.jura(13, "Bold")).tracking(0.8)
-                Spacer(minLength: 0)
-                Circle()
-                    .fill(lit ? Palette.orange : Palette.lampOff)
-                    .overlay(Circle().stroke(Palette.ink, lineWidth: 1.5))
-                    .frame(width: 8, height: 8)
-            }
-            Spacer(minLength: 0)
-            Text(detail).font(Fonts.jura(9, "SemiBold")).tracking(0.7).opacity(0.85)
-        }
-        .foregroundStyle(Palette.ink)
-    }
-}
-
-/// A hardware key: a hard ink shadow underneath that disappears as the key goes down.
-struct HardKeyStyle: ButtonStyle {
-    var fill: Color
-    var width: CGFloat = 56
-    var height: CGFloat = 72
-
-    func makeBody(configuration: Configuration) -> some View {
-        configuration.label
-            .padding(.horizontal, 9)
-            .padding(.vertical, 8)
-            .frame(width: width, height: height)
-            .background(fill)
-            .overlay(Rectangle().stroke(Palette.ink, lineWidth: 2))
-            .offset(y: configuration.isPressed ? 3 : 0)
-            .background(Rectangle().fill(Palette.ink).offset(y: 3))
-            .contentShape(Rectangle())
     }
 }

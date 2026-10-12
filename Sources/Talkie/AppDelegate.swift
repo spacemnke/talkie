@@ -5,19 +5,16 @@ import TalkieCore
 @MainActor
 final class AppDelegate: NSObject, NSApplicationDelegate {
     let model = BoardModel()
-    private lazy var cards = CardFileModel(boardModel: model)
     private var statusItem: NSStatusItem?
-    private var boardWindow: NSWindow?
-    private var cardWindow: NSWindow?
-    private var lineWindow: NSWindow?
-    private var effectsWindow: NSWindow?
-    private var settingsWindow: NSWindow?
-    private var welcomeWindow: NSWindow?
+    private var boardWindow: DeviceNSWindow?
+    private var lineWindow: DeviceNSWindow?
+    private var effectsWindow: DeviceNSWindow?
+    private var settingsWindow: DeviceNSWindow?
+    private var welcomeWindow: DeviceNSWindow?
     private static let finishedWelcome = "didFinishFirstRun"
     private var overlay: MicOverlay?
     private var hotKey: HotKey?
     private var keyMonitor: Any?
-    private var wheelMonitor: Any?
     private var iconLook: StatusIcon.Look?
 
     func applicationDidFinishLaunching(_ notification: Notification) {
@@ -40,15 +37,6 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             self?.overlay?.frame()
             self?.updateStatusIcon()
         }
-        model.onOpenCardFile = { [weak self] forFreeJack in
-            guard let self else { return }
-            self.showCardFile()
-            guard forFreeJack else { return }
-            // Once the window is up, so the code field can take the cursor.
-            DispatchQueue.main.async { [weak self] in
-                MainActor.assumeIsolated { self?.cards.greetFreeJack() }
-            }
-        }
         // Someone patched in: show who, with the talk key and private mute, under the menu bar icon.
         model.onIncoming = { [weak self] jack in self?.showLine(jack) }
         model.start()
@@ -61,18 +49,11 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         hotKey.onRelease = { [weak self] in MainActor.assumeIsolated { self?.model.stopTalking() } }
         self.hotKey = hotKey
 
-        // Space to talk and F for effects while the board window is in front.
+        // Space to talk and F for effects while the board window is in front, plus ⌘W and ⌘, anywhere.
         keyMonitor = NSEvent.addLocalMonitorForEvents(matching: [.keyDown, .keyUp]) { [weak self] event in
             let key = KeyPress(event)
             let consumed = MainActor.assumeIsolated { self?.handleKey(key) ?? false }
             return consumed ? nil : event
-        }
-
-        // Scrolling over the Rolodex turns it.
-        wheelMonitor = NSEvent.addLocalMonitorForEvents(matching: .scrollWheel) { [weak self] event in
-            let wheel = Wheel(event)
-            MainActor.assumeIsolated { self?.handleWheel(wheel) }
-            return event
         }
 
         // The example board starts with a line open to Maya, so bring the mic down once everything is placed.
@@ -92,10 +73,18 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
 
     @objc func showWelcome() {
         if welcomeWindow == nil {
-            let view = FirstRunView(model: model, cards: cards) { [weak self] in
+            let view = FirstRunView(model: model) { [weak self] in
                 MainActor.assumeIsolated { self?.finishWelcome() }
             }
             let window = makeDeviceWindow(title: "Welcome to Talkie", content: view)
+            // Closed before the last step: show the board anyway. Welcome comes back next launch.
+            window.onClose = { [weak self] in
+                MainActor.assumeIsolated {
+                    guard let self, self.welcomeWindow != nil else { return }
+                    self.welcomeWindow = nil
+                    self.showBoard()
+                }
+            }
             window.center()
             welcomeWindow = window
         }
@@ -106,8 +95,9 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     private func finishWelcome() {
         let first = !UserDefaults.standard.bool(forKey: Self.finishedWelcome)
         UserDefaults.standard.set(true, forKey: Self.finishedWelcome)
-        welcomeWindow?.close()
+        let window = welcomeWindow
         welcomeWindow = nil
+        window?.close()
         showBoard()
         if first { dropMicSoon() }
     }
@@ -186,79 +176,26 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         NSApp.activate()
     }
 
-    // MARK: Card file window
-
-    @objc func showCardFile() {
-        if cardWindow == nil {
-            let window = makeDeviceWindow(title: "Card File", content: CardFileView(model: cards))
-            place(window, beside: boardWindow)
-            cardWindow = window
-        }
-        cardWindow?.makeKeyAndOrderFront(nil)
-        NSApp.activate()
+    /// Opens the board ready for a friend's code.
+    @objc func addFriend() {
+        showBoard()
+        model.startAdding()
     }
 
-    /// To the right of the switchboard (or its left) when there's room, otherwise centred.
-    private func place(_ window: NSWindow, beside board: NSWindow?) {
-        guard let board, board.isVisible, let screen = board.screen ?? NSScreen.main else {
-            window.center()
-            return
-        }
-        let size = window.frame.size
-        let visible = screen.visibleFrame
-        var origin = NSPoint(x: board.frame.maxX + 16, y: board.frame.maxY - size.height)
-        if origin.x + size.width > visible.maxX { origin.x = board.frame.minX - 16 - size.width }
-        guard origin.x >= visible.minX else {
-            window.center()
-            return
-        }
-        origin.y = min(max(origin.y, visible.minY), visible.maxY - size.height)
-        window.setFrameOrigin(origin)
-    }
-
-    /// The parts of a scroll event we need, as plain values.
-    private struct Wheel: Sendable {
-        var windowNumber: Int
-        var location: CGPoint
-        var deltaY: CGFloat
-
-        init(_ event: NSEvent) {
-            windowNumber = event.windowNumber
-            location = event.locationInWindow
-            deltaY = event.scrollingDeltaY
-        }
-    }
-
-    private func handleWheel(_ wheel: Wheel) {
-        guard let window = cardWindow, wheel.windowNumber == window.windowNumber, let content = window.contentView else { return }
-        let p = content.convert(wheel.location, from: nil)
-        let y = content.isFlipped ? p.y : content.bounds.height - p.y
-        cards.wheel(at: CGPoint(x: p.x, y: y), deltaY: wheel.deltaY)
-    }
-
-    /// A transparent window whose visible edge is the device's own rounded shell (drawn by
-    /// DeviceWindow). The real traffic lights sit on its title strip.
-    private func makeDeviceWindow<Content: View>(title: String, content: Content) -> NSWindow {
+    /// A borderless window whose visible edge is the device's own rounded shell, drawn by
+    /// DeviceWindow along with its title strip and window keys.
+    private func makeDeviceWindow<Content: View>(title: String, content: Content) -> DeviceNSWindow {
         let host = NSHostingView(rootView: content)
-        let window = NSWindow(
-            contentRect: NSRect(origin: .zero, size: host.fittingSize),
-            styleMask: [.titled, .closable, .miniaturizable, .fullSizeContentView],
-            backing: .buffered,
-            defer: false
-        )
+        let window = DeviceNSWindow(contentRect: NSRect(origin: .zero, size: host.fittingSize))
         window.title = title
-        window.titleVisibility = .hidden
-        window.titlebarAppearsTransparent = true
-        // An empty compact toolbar makes the title bar tall enough to centre the traffic lights on the strip.
-        window.toolbar = NSToolbar(identifier: "device")
-        window.toolbarStyle = .unifiedCompact
-        window.titlebarSeparatorStyle = .none
-        window.isOpaque = false
-        window.backgroundColor = .clear
-        window.hasShadow = false
         window.contentView = host
-        window.isReleasedWhenClosed = false
         return window
+    }
+
+    /// True while a text field has the keyboard.
+    private var isTyping: Bool {
+        guard let editor = NSApp.keyWindow?.firstResponder as? NSTextView else { return false }
+        return editor.isEditable
     }
 
     private func toggleBoard() {
@@ -292,12 +229,32 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
 
     /// Returns true when the key was used.
     private func handleKey(_ key: KeyPress) -> Bool {
-        // ⌘, opens Talkie's settings from any of its windows.
-        if key.isDown, key.command, key.character == "," {
-            showSettings()
-            return true
+        if key.isDown, key.command {
+            switch key.character {
+            case ",":
+                // ⌘, opens Talkie's settings from any of its windows.
+                showSettings()
+                return true
+            case "w":
+                // ⌘W closes the window in front, as its close key does.
+                guard let window = NSApp.keyWindow as? DeviceNSWindow else { return false }
+                window.close()
+                return true
+            case "x", "c", "v", "a":
+                // Talkie has no menu bar, so send cut, copy, paste and select all to the text field ourselves.
+                let actions = [
+                    "x": #selector(NSText.cut(_:)), "c": #selector(NSText.copy(_:)),
+                    "v": #selector(NSText.paste(_:)), "a": #selector(NSText.selectAll(_:))
+                ]
+                guard isTyping, let action = actions[key.character] else { return false }
+                return NSApp.sendAction(action, to: nil, from: nil)
+            default:
+                break
+            }
         }
         guard let boardWindow, key.windowNumber == boardWindow.windowNumber else { return false }
+        // Space and F are just letters while you type a code.
+        if isTyping { return false }
         if key.keyCode == 49 { // space
             if key.isDown {
                 if !key.isRepeat { model.startTalking() }
@@ -347,7 +304,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     private func showMenu() {
         let menu = NSMenu()
         add(menu, "Open Switchboard", #selector(showBoard))
-        add(menu, "Card File", #selector(showCardFile))
+        add(menu, "Add a Friend…", #selector(addFriend))
         if !model.board.openJacks.isEmpty {
             add(menu, "Open Line", #selector(showOpenLine))
         }
@@ -372,13 +329,13 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             item.submenu = actions
             friends.addItem(item)
         }
-        // Friends in the Rolodex but not on the board can only knock.
-        let offBoard = cards.file.cards.filter { model.board.jack(of: $0.id) == nil }
+        // Anyone who isn't on the board can only knock.
+        let offBoard = Invite.samples.filter { model.board.jack(of: $0.friend.id) == nil }
         if !offBoard.isEmpty {
             friends.addItem(.separator())
-            for card in offBoard {
-                friends.addItem(ClosureMenuItem(title: "\(card.name.capitalized) Tries to Patch In") { [weak self] in
-                    MainActor.assumeIsolated { self?.model.simulateKnock(card.name) }
+            for invite in offBoard {
+                friends.addItem(ClosureMenuItem(title: "\(invite.friend.name.capitalized) Tries to Patch In") { [weak self] in
+                    MainActor.assumeIsolated { self?.model.simulateKnock(invite) }
                 })
             }
         }

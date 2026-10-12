@@ -164,10 +164,12 @@ struct FloatingMicView: View {
             x: mic.position.x + ex * cos(radians) - ey * sin(radians),
             y: mic.position.y + ex * sin(radians) + ey * cos(radians)
         )
+        // As thick as the cord stub drawn on the mic itself, so the two join up.
+        let k = size.width / MicArt.viewBox.width * min(1, mic.scale * 1.2)
         var coil = Path()
-        coil.addLines(Coil.points(from: exit, to: snap.anchor, radius: 5.5 * min(1, mic.scale * 1.2), rising: true))
-        ctx.stroke(coil, with: .color(Palette.ink), style: StrokeStyle(lineWidth: 5, lineCap: .round, lineJoin: .round))
-        ctx.stroke(coil, with: .color(Palette.lampOff), style: StrokeStyle(lineWidth: 2.6, lineCap: .round, lineJoin: .round))
+        coil.addLines(Coil.points(from: exit, to: snap.anchor, radius: 5.5 * k, rising: true))
+        ctx.stroke(coil, with: .color(Palette.ink), style: StrokeStyle(lineWidth: 5 * k, lineCap: .round, lineJoin: .round))
+        ctx.stroke(coil, with: .color(Palette.lampOff), style: StrokeStyle(lineWidth: 2.5 * k, lineCap: .round, lineJoin: .round))
 
         var m = ctx
         m.translateBy(x: mic.position.x, y: mic.position.y)

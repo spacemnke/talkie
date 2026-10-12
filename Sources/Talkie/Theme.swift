@@ -102,8 +102,9 @@ enum Radius {
     static let key: CGFloat = 5
 }
 
-/// A Relay device window: the grey shell with rounded shoulders, a plate title strip under the
-/// real traffic lights, and a hard offset shadow. The NSWindow behind it is transparent.
+/// A Relay device window: the grey shell with rounded shoulders, a plate title strip with the
+/// window keys, and a hard offset shadow. The NSWindow behind it is borderless and transparent;
+/// dragging the title strip moves it.
 struct DeviceWindow<Content: View>: View {
     static var titleHeight: CGFloat { 38 }
     /// Room around the shell for its outline and shadow.
@@ -115,15 +116,24 @@ struct DeviceWindow<Content: View>: View {
     var body: some View {
         let shape = RoundedRectangle(cornerRadius: Radius.window, style: .continuous)
         VStack(spacing: 0) {
-            Text(title)
-                .font(Fonts.jura(11, "SemiBold"))
-                .tracking(1.6)
-                .foregroundStyle(Palette.ink)
-                .frame(maxWidth: .infinity)
-                .frame(height: Self.titleHeight)
-                .background(Palette.plate)
-                .overlay(alignment: .bottom) { Rectangle().fill(Palette.ink).frame(height: 1.5) }
-                .accessibilityAddTraits(.isHeader)
+            ZStack {
+                WindowDragStrip()
+                Text(title)
+                    .font(Fonts.jura(11, "SemiBold"))
+                    .tracking(1.6)
+                    .foregroundStyle(Palette.ink)
+                    .allowsHitTesting(false)
+                    .accessibilityAddTraits(.isHeader)
+            }
+            .frame(maxWidth: .infinity)
+            .frame(height: Self.titleHeight)
+            .background(Palette.plate)
+            .overlay(alignment: .leading) {
+                WindowKeys()
+                    .frame(width: WindowKeys.size.width, height: WindowKeys.size.height)
+                    .padding(.leading, 15)
+            }
+            .overlay(alignment: .bottom) { Rectangle().fill(Palette.ink).frame(height: 1.5) }
             content
         }
         .background(Palette.shell)

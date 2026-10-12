@@ -387,9 +387,9 @@ private struct LevelBars: View {
 /// Three steps from first launch to first hello: meet Talkie, allow the microphone, share your code.
 struct FirstRunView: View {
     let model: BoardModel
-    let cards: CardFileModel
     let finish: () -> Void
     @State private var page = 0
+    @State private var cardAnchor = ShareAnchorBox()
     @State private var mic = MicPermission.current
     @State private var asking = false
 
@@ -483,33 +483,38 @@ struct FirstRunView: View {
     }
 
     private var exchange: some View {
-        let myCode = cards.file.myCode
-        let card = LineCard(friend: Friend(id: 0, name: "YOUR LINE"), code: myCode, added: Date())
+        let card = model.myCard
         return VStack(alignment: .leading, spacing: 0) {
             Text("MAKE YOUR FIRST CONNECTION.")
                 .font(Fonts.jura(20, "Regular"))
                 .tracking(0.6)
                 .padding(.top, 12)
             HStack(alignment: .top, spacing: 30) {
-                LineCardView(card: card, jack: nil)
+                LineCardView(card: card)
                     .scaleEffect(1.08, anchor: .topLeading)
-                    .frame(width: CardSpace.card.width * 1.08, height: CardSpace.card.height * 1.08, alignment: .topLeading)
+                    .frame(width: LineCardView.size.width * 1.08, height: LineCardView.size.height * 1.08, alignment: .topLeading)
                 VStack(alignment: .leading, spacing: 10) {
                     Caption(text: "YOUR CODE")
-                    Text(myCode).font(Fonts.lcd(20)).tracking(1.4).textSelection(.enabled)
-                    Button { cards.copyMyCode() } label: {
-                        Text("COPY CODE").frame(width: 150, height: 36)
+                    Text(card.code).font(Fonts.lcd(20)).tracking(1.4).textSelection(.enabled)
+                    Button { model.copyMyCode() } label: {
+                        Text("COPY CODE").frame(width: 150, height: 32)
                     }
                     .buttonStyle(RelayKeyStyle())
-                    .padding(.top, 10)
+                    .padding(.top, 6)
+                    Button { model.sendMyCard(from: cardAnchor.view) } label: {
+                        Text("SEND YOUR CARD").frame(width: 150, height: 32)
+                    }
+                    .buttonStyle(RelayKeyStyle())
+                    .background(ShareAnchor(box: cardAnchor))
+                    .padding(.top, 4)
                 }
-                .padding(.top, 20)
+                .padding(.top, 10)
             }
             .padding(.top, 34)
-            Text("Send your code to a friend.")
+            Text("Send your card or your code to a friend.")
                 .font(Fonts.jura(13, "Regular"))
                 .padding(.top, 26)
-            Text("Or add their code in the card file.")
+            Text("To add theirs, press ADD on your switchboard and type it in.")
                 .font(Fonts.jura(12, "Regular"))
                 .foregroundStyle(Palette.mute)
                 .padding(.top, 8)

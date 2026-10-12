@@ -28,20 +28,31 @@ final class BoardModel {
     private(set) var mic = FloatingMic()
     var overlayBounds: CGRect = .zero
     var anchor: CGPoint = .zero
-    let micSize = CGSize(width: 110, height: 110 * MicArt.viewBox.height / MicArt.viewBox.width)
+    /// 198pt wide: big enough to grab and read from across the screen.
+    let micSize = CGSize(width: 198, height: 198 * MicArt.viewBox.height / MicArt.viewBox.width)
 
     private(set) var volume: Double = 0.7
     private(set) var soundOn = true
     /// A jack whose name strip flashes because a friend just landed on it.
     private(set) var arriving: Int?
 
+    // Adding a friend, on the board itself
+    /// What's typed in the code field.
+    var codeText = ""
+    /// Asking who a code belongs to.
+    private(set) var checking = false
+    /// Bumped to put the cursor in the code field.
+    private(set) var focusRequest = 0
+    /// Your name on the line card you send: the first word of your Mac account's name.
+    let myName = BoardModel.cardName()
+
     let sound = SoundBoard()
     @ObservationIgnored var onFrame: (() -> Void)?
-    /// Show the card file. True when it's because someone clicked a free jack.
-    @ObservationIgnored var onOpenCardFile: ((_ forFreeJack: Bool) -> Void)?
     /// A friend just patched in to you (the jack they're on).
     @ObservationIgnored var onIncoming: ((_ jack: Int) -> Void)?
     @ObservationIgnored private var knownIncoming: Set<Int> = []
+    /// Who last knocked, so the add panel can offer their code.
+    @ObservationIgnored private var lastKnock: (code: String, at: TimeInterval)?
     @ObservationIgnored private let defaults = UserDefaults.standard
 
     private enum Saved {
@@ -171,7 +182,7 @@ final class BoardModel {
 
     // MARK: Events
 
-    /// Changes the board and plays whatever the change calls for. The card file uses this too.
+    /// Changes the board and plays whatever the change calls for.
     func apply(_ change: (inout Switchboard) -> [BoardEvent]) {
         var b = board
         let events = change(&b)
@@ -202,7 +213,7 @@ final class BoardModel {
             case .buzz: sound.play(.buzz)
             case .micDrop: dropMic()
             case .micStow: stowMic()
-            case .openCardFile: onOpenCardFile?(true)
+            case .addFriend: sound.play(.click); focusRequest += 1
             }
         }
     }
@@ -280,9 +291,87 @@ final class BoardModel {
 
     // MARK: Friends coming and going
 
-    func openCardFile() {
-        sound.play(.click)
-        onOpenCardFile?(false)
+    var isAdding: Bool { board.adding != nil }
+
+    func toggleAdding() {
+        if isAdding { stopAdding() } else { startAdding() }
+    }
+
+    /// Opens the add panel. The friend goes on `jack` if it's free, otherwise the first free jack.
+    func startAdding(at jack: Int? = nil) {
+        apply { $0.startAdding(at: jack) }
+        // Someone just knocked? Offer their code.
+        if codeText.isEmpty, let knock = lastKnock, now - knock.at < 60 { codeText = knock.code }
+    }
+
+    func stopAdding() {
+        guard isAdding else { return }
+        apply { $0.stopAdding(); return [.click] }
+        codeText = ""
+    }
+
+    /// The code field changed: keep it short and capitalised, and pick the code out of a pasted message.
+    func tidyCode(_ text: String) {
+        let tidy = text.count > 9 ? (InviteCode.normalize(text) ?? "") : text.uppercased()
+        if tidy != codeText { codeText = tidy }
+    }
+
+    /// Asks who the code belongs to (a moment on CHECKING, as if asking the operator) and puts them on the board.
+    func checkCode() {
+        guard !checking else { return }
+        let raw = codeText
+        guard let code = InviteCode.normalize(raw) else {
+            finishCheck(raw)
+            return
+        }
+        checking = true
+        apply { $0.say("CHECKING", code, now: now, for: 3); return [.keyClick] }
+        DispatchQueue.main.asyncAfter(deadline: .now() + (reduceMotion ? 0.1 : 0.7)) { [weak self] in
+            MainActor.assumeIsolated { self?.finishCheck(raw) }
+        }
+    }
+
+    private func finishCheck(_ raw: String) {
+        checking = false
+        var result = CodeResult.empty
+        apply { b in
+            let out = b.enterCode(raw, now: now, lookup: Invite.lookup)
+            result = out.result
+            return out.events
+        }
+        if case .added(let jack) = result {
+            codeText = ""
+            sound.play(.accept)
+            flashArrival(jack)
+        } else {
+            // Leave what they typed so they can fix it.
+            focusRequest += 1
+        }
+    }
+
+    /// Takes a friend off the board. Their code still works to bring them back.
+    func eject(_ jack: Int) {
+        apply { $0.removeFriend(at: jack, now: now) }
+    }
+
+    func copyMyCode() {
+        NSPasteboard.general.clearContents()
+        NSPasteboard.general.setString(board.myCode, forType: .string)
+        apply { $0.say("COPIED", "SEND IT TO A FRIEND", now: now); return [.click] }
+    }
+
+    var myCard: LineCard { LineCard(name: myName, code: board.myCode) }
+
+    /// Your line card as a picture, with your code in words, through the share menu.
+    func sendMyCard(from view: NSView?) {
+        CardSharing.share(myCard, from: view)
+        apply { $0.say("YOUR CARD", "SEND IT TO A FRIEND", now: now); return [.click] }
+    }
+
+    nonisolated private static func cardName() -> String {
+        let first = NSFullUserName().split(separator: " ").first.map(String.init) ?? ""
+        let letters = first.uppercased().filter { $0.isLetter }
+        return letters.isEmpty ? "YOUR LINE" : String(letters.prefix(10))
     }
 
     func flashArrival(_ jack: Int) {
@@ -338,7 +427,10 @@ final class BoardModel {
     // MARK: Simulated friends (until there's a network)
 
     func simulateIncoming(_ jack: Int) { apply { $0.friendPatchesIn(jack, now: now) } }
-    func simulateKnock(_ name: String) { apply { $0.knock(from: name, now: now) } }
+    func simulateKnock(_ invite: Invite) {
+        lastKnock = (invite.code, now)
+        apply { $0.knock(from: invite.friend.name, now: now) }
+    }
     func simulateFriendTalks(_ jack: Int) { apply { $0.friendTalks(jack, for: 2.5, now: now); return [] } }
     func simulateFriendDoNotDisturb(_ jack: Int, _ on: Bool) { apply { $0.setFriendDoNotDisturb(jack, on, now: now) } }
 

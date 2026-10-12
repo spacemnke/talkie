@@ -61,9 +61,10 @@ final class SwitchboardTests: XCTestCase {
         XCTAssertEqual(b.readout(now: 1).big, "BUSY")
 
         XCTAssertEqual(b.patch(.b, into: 7, now: 5), [.denied])
-        XCTAssertEqual(b.readout(now: 5).sub, "ADD A FRIEND IN THE CARD FILE")
-        // Clicking the free jack opens the card file instead.
-        XCTAssertEqual(b.tapJack(7, now: 6).events, [.openCardFile])
+        XCTAssertEqual(b.readout(now: 5).sub, "CLICK IT TO ADD A FRIEND")
+        // Clicking the free jack gets the board ready for a friend's code instead.
+        XCTAssertEqual(b.tapJack(7, now: 6).events, [.addFriend])
+        XCTAssertEqual(b.adding, Adding(jack: 7))
     }
 
     func testTappingAJackSendsTheNextFreeCord() {

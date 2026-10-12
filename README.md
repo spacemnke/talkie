@@ -11,8 +11,8 @@ a coiled cord and floats above every app: hold it (or ⌥Space) to talk.
 ## Status
 
 Step 1 of 3: the board, in the Relay design. The switchboard, patch cords with physics and
-haptics, the floating Relay mic, the card file, the open-line panel, voice effects, settings and the
-welcome steps all work, with simulated friends and codes. There's no networking or real audio yet; the sounds
+haptics, the floating Relay mic, adding friends by code, the open-line panel, voice effects, settings
+and the welcome steps all work, with simulated friends and codes. There's no networking or real audio yet; the sounds
 are the board's own clicks and beeps.
 
 ## Run it
@@ -41,23 +41,25 @@ Privacy & Security** and click **Open Anyway** (or run `xattr -dr com.apple.quar
 - When the line opens the mic drops onto your screen. Hold its TALK key (or anywhere on it) to
   talk; drag or fling it anywhere. Its orange side key changes the effect; the grey one buzzes.
 - Space (while the board is in front) or ⌥Space (from any app) also talks. `F` changes the effect.
-- Click the menu bar icon to put the mic away or bring it back. Right-click it for the card file,
+- Drag any Talkie window by its title strip. Its round keys close and minimise it (⌘W closes too).
+- Click the menu bar icon to put the mic away or bring it back. Right-click it to add a friend, see
   the open line, voice effects, settings (or ⌘,) and **Simulate**: pick a friend on the board and
-  have them patch in, talk, or switch do not disturb, or have someone from the Rolodex try to
+  have them patch in, talk, or switch do not disturb, or have someone who isn't on your board try to
   patch in (only the eight on your board can open a line; anyone else just knocks). When a friend
   patches in, the open-line panel appears under the icon; muting them there only changes what you hear.
 
-### The card file
+### Adding friends
 
-Click the free socket (08) or the **FILE** key on the board.
+It all happens on the switchboard. Press **ADD** on the deck, or click the free socket (08).
 
-- Type a friend's code and press **Check**. `TLK-ZOE7` and `TLK-PIP3` work; `TLK-0000` doesn't. A line
-  card drops into the OUT tray.
-- Drag the card onto the card slot (or just click it). The punch reads it, puts the friend
-  on the next free jack and files the card in the Rolodex.
-- The board holds eight friends. When it's full the punch refuses the card: turn the Rolodex (the
-  knobs, the scroll wheel or the arrow keys) to someone on the board and press **Eject from board**. Their card
-  stays, so you can drag it back into the punch later. Nico, Bea and Tom are already in there.
+- The top panel turns into code entry. Type or paste a friend's code and press **Check** (or Return).
+  `TLK-ZOE7`, `TLK-PIP3` and `TLK-NICO` work; `TLK-0000` doesn't. The LCD says how it went and the
+  friend lands on the jack that's lit orange. Esc or **×** puts the panel away.
+- Your own code sits next to it. **Copy** copies it; **Send card** shares a picture of your line card
+  with the code, through Messages, Mail or AirDrop. Pasting that whole message into a board still works.
+- The board holds eight friends. To make room, right-click a jack and choose **Eject**. Their code
+  brings them back: the sample friends' codes are `TLK-` and their name, like `TLK-MAYA` (the full list
+  is in `Sources/TalkieCore/Invite.swift`).
 
 ## Website
 

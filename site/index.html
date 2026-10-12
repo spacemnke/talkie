@@ -209,7 +209,7 @@ kbd{font-family:var(--font-display);font-weight:700;font-size:.85em;letter-spaci
 .fmic{position:absolute;left:0;top:0;z-index:2;width:104px;will-change:transform}
 .mic{display:block;width:100%;height:auto;overflow:visible}
 
-/* friends: the card file */
+/* friends: adding a code on the board, and the line card a friend sends you */
 .punchbox{display:grid;gap:14px;padding:18px;background:var(--shell);border:2px solid var(--ink);border-radius:20px;box-shadow:6px 8px 0 var(--shadow);font-family:var(--font-display);text-transform:uppercase}
 .coderow{display:grid;grid-template-columns:minmax(0,1fr) auto;gap:10px;align-items:stretch}
 .codebox{display:flex;align-items:center;padding:8px 12px;background:var(--white);color:var(--ink);border:1.5px solid var(--ink);border-radius:5px;font-family:var(--font-lcd);font-weight:800;font-size:19px;letter-spacing:.12em;min-width:0;overflow:hidden}
@@ -217,13 +217,13 @@ kbd{font-family:var(--font-display);font-weight:700;font-size:.85em;letter-spaci
 .punchbox .lcd{margin-top:0}
 .punchbox .lcd-in{grid-template-areas:"main" "sub" "flags";grid-template-columns:minmax(0,1fr)}
 .punchbox .lcd-main{font-size:22px}
-.drum{position:relative;--cw:min(270px,calc(100vw - 96px));--ch:calc(var(--cw) * .531);height:calc(var(--ch) + 46px)}
+.drum{position:relative;--cw:min(270px,calc(100vw - 96px));--ch:calc(var(--cw) * .531);height:calc(var(--ch) + 8px)}
 .lcard{position:absolute;left:50%;bottom:0;width:var(--cw);height:var(--ch);background:var(--plate);border:1.5px solid var(--ink);border-radius:5px;overflow:hidden;color:var(--ink);transform-origin:50% 100%;transform:translateX(-50%) translateY(calc(var(--k) * -14px)) scale(calc(1 - var(--k) * .045));z-index:calc(10 - var(--k))}
 .lcard.back{background:var(--shell);border-width:1px}
 .lc-band{position:absolute;left:0;right:0;top:0;height:10px;background:var(--orange)}
 .lc-kind{position:absolute;left:14px;top:20px;font-size:8.5px;font-weight:600;letter-spacing:.14em;color:var(--mute)}
 .lc-name{position:absolute;left:14px;top:33px;font-size:27px;font-weight:300;line-height:1;letter-spacing:.02em}
-.lc-meta{position:absolute;left:14px;top:69px;font-size:8.5px;font-weight:600;letter-spacing:.1em;color:var(--mute)}
+.lc-code{position:absolute;left:14px;top:70px;font-family:var(--font-lcd);font-weight:800;font-size:15px;letter-spacing:.1em}
 .lc-stamp{position:absolute;right:16px;top:22px;padding:3px 8px;border:1px solid var(--orange);color:var(--orange-ink);font-size:8.5px;font-weight:700;letter-spacing:.1em}
 .lc-holes{position:absolute;left:14px;right:40px;bottom:22px;display:grid;grid-template-columns:repeat(14,minmax(0,1fr));gap:4px 7px}
 .lc-holes i{height:6px;border:.6px solid var(--mute)}
@@ -231,7 +231,7 @@ kbd{font-family:var(--font-display);font-weight:700;font-size:.85em;letter-spaci
 .lc-notch{position:absolute;bottom:-1px;width:12px;height:7px;background:var(--shell);border:1.5px solid var(--ink);border-bottom:0;border-radius:7px 7px 0 0}
 .lc-notch.l{left:14%}
 .lc-notch.r{right:14%}
-.counter{display:flex;justify-content:space-between;font-size:11px;font-weight:600;letter-spacing:.12em}
+.counter{display:flex;justify-content:space-between;font-size:11px;font-weight:600;letter-spacing:.12em;color:var(--mute)}
 
 /* spec sheet */
 .specs{margin:0;border-top:2px solid var(--ink)}
@@ -402,25 +402,22 @@ kbd{font-family:var(--font-display);font-weight:700;font-size:.85em;letter-spaci
       <div class="split">
         <div class="split-copy">
           <span class="label" style="color:var(--orange-ink)">Adding friends</span>
-          <h2 id="friendsTitle">Eight jacks and a Rolodex</h2>
-          <p>Everyone on Talkie has a code, like <b>TLK-7Q4F</b>. When a friend sends you theirs, check it in the card file and the punch issues their line card. Drag the card into the punch and they land on a free jack.</p>
-          <p>Your board holds eight friends. Everyone you add keeps a card in the Rolodex, so you can eject someone to make room and punch their card back in later.</p>
-          <p class="note">Each code works once. Every card has its own hole pattern.</p>
+          <h2 id="friendsTitle">Eight jacks, one code each</h2>
+          <p>Everyone on Talkie has a code, like <b>TLK-7Q4F</b>. When a friend sends you theirs, press ADD on your switchboard (or click a free jack) and type it in. They land on the jack, lamp and all.</p>
+          <p>Your board holds eight friends. Right-click a jack to eject someone and make room; their code brings them back any time.</p>
+          <p class="note">Send yours as a line card: a punched card with your name, your code and a hole pattern of its own.</p>
         </div>
         <div class="punchbox" aria-hidden="true">
+          <div class="counter"><span>Zoe sent you her card</span></div>
+          <div class="drum">
+            <div class="lcard" style="--k:0" data-name="ZOE"><span class="lc-band"></span><span class="lc-kind">TALKIE LINE CARD</span><b class="lc-name">ZOE</b><span class="lc-code">TLK-ZOE7</span><span class="lc-stamp">PATCH ME IN</span><span class="lc-holes"></span><span class="lc-notch l"></span><span class="lc-notch r"></span></div>
+          </div>
           <div class="coderow"><span class="codebox">TLK-ZOE7</span><span class="key">Check</span></div>
           <div class="lcd"><div class="lcd-in">
-            <div class="lcd-main">ACCEPTED</div>
-            <div class="lcd-sub">ZOE · JACK 08</div>
-            <div class="lcd-flags"><span class="flag">READ</span><span class="flag on">OK</span><span class="flag">ERR</span></div>
+            <div class="lcd-main">ZOE</div>
+            <div class="lcd-sub">NEW ON JACK 08</div>
+            <div class="lcd-flags"><span class="flag">A</span><span class="flag">B</span><span class="flag">TX</span><span class="flag">RX</span></div>
           </div></div>
-          <div class="counter"><span>Rolodex</span><span>01 / 11</span></div>
-          <div class="drum">
-            <div class="lcard back" style="--k:3"></div>
-            <div class="lcard back" style="--k:2"></div>
-            <div class="lcard back" style="--k:1"></div>
-            <div class="lcard" style="--k:0" data-name="ZOE"><span class="lc-band"></span><span class="lc-kind">LINE CARD</span><b class="lc-name">ZOE</b><span class="lc-meta">ADDED 11 OCT · TLK-ZOE7</span><span class="lc-stamp">JACK 08</span><span class="lc-holes"></span><span class="lc-notch l"></span><span class="lc-notch r"></span></div>
-          </div>
         </div>
       </div>
     </section>
@@ -431,7 +428,7 @@ kbd{font-family:var(--font-display);font-weight:700;font-size:.85em;letter-spaci
         <h2 id="specsTitle">On the board</h2>
       </div>
       <dl class="specs">
-        <div><dt>Lines</dt><dd><b>8 jacks</b><span>One friend per jack. Everyone else waits in the Rolodex.</span></dd></div>
+        <div><dt>Lines</dt><dd><b>8 jacks</b><span>One friend per jack. Only those eight can open a line to you.</span></dd></div>
         <div><dt>Cords</dt><dd><b>2</b><span>Plug both in for a three-way line.</span></dd></div>
         <div><dt>Opening a line</dt><dd><b>Instant</b><span>No ringing and no answer button.</span></dd></div>
         <div><dt>Talking</dt><dd><b>Full duplex</b><span>You both talk at once, like a phone call.</span></dd></div>
@@ -448,7 +445,7 @@ kbd{font-family:var(--font-display);font-weight:700;font-size:.85em;letter-spaci
         <div class="get-main">
           <span class="label" style="color:var(--orange-ink)">Download</span>
           <h2 id="getTitle">Get the early build</h2>
-          <p>The switchboard, the floating mic and the card file all work today, with practice friends to patch into. Real lines between Macs come next.</p>
+          <p>The switchboard, the floating mic and adding friends by code all work today, with practice friends to patch into. Real lines between Macs come next.</p>
           <a class="key key-orange" href="/download">Download Talkie.dmg <span class="led" aria-hidden="true"></span></a>
           <span class="cta-meta">Universal app · macOS 14 Sonoma or later</span>
         </div>
