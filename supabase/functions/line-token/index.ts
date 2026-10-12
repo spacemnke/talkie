@@ -5,9 +5,10 @@
 // The caller is checked against Supabase Auth here, so the gateway's JWT check is off.
 import { createClient } from "npm:@supabase/supabase-js@2";
 
-const LIVEKIT_URL = Deno.env.get("LIVEKIT_URL") ?? "";
-const LIVEKIT_API_KEY = Deno.env.get("LIVEKIT_API_KEY") ?? "";
-const LIVEKIT_API_SECRET = Deno.env.get("LIVEKIT_API_SECRET") ?? "";
+// Trimmed: pasted secrets often carry a stray space or newline, which would break the signature.
+const LIVEKIT_URL = (Deno.env.get("LIVEKIT_URL") ?? "").trim();
+const LIVEKIT_API_KEY = (Deno.env.get("LIVEKIT_API_KEY") ?? "").trim();
+const LIVEKIT_API_SECRET = (Deno.env.get("LIVEKIT_API_SECRET") ?? "").trim();
 
 /** How long a pass is good for. A line can stay open this long. */
 const PASS_SECONDS = 6 * 60 * 60;
