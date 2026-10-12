@@ -1,8 +1,8 @@
 # Talkie
 
 A walkie-talkie for the Mac with a switchboard instead of a contact list. Drag a patch cord into a
-friend's jack and the line opens instantly. While a line is open, a mic drops out of the menu bar on
-a coiled cord and floats above every app: hold it (or ⌥Space) to talk.
+friend's jack and they hear a knock; when they let you in, the line opens. While a line is open, a mic
+drops out of the menu bar on a coiled cord and floats above every app: hold it (or ⌥Space) to talk.
 
 - **Design:** the Relay redesign in [`design/relay/`](design/relay/) (review boards, handoff, and
   `Talkie-Relay-Prototype.html` to open in a browser). The earlier prototype is `design/prototype.html`.
@@ -11,8 +11,8 @@ a coiled cord and floats above every app: hold it (or ⌥Space) to talk.
 ## Status
 
 Step 1 of 3: the board, in the Relay design. The switchboard, patch cords with physics and
-haptics, the floating Relay mic, adding friends by code, the open-line panel, voice effects, settings
-and the welcome steps all work, with simulated friends and codes. There's no networking or real audio yet; the sounds
+haptics, knocking, the floating Relay mic, adding friends by code, voice effects, settings and the
+welcome steps all work, with simulated friends and codes. There's no networking or real audio yet; the sounds
 are the board's own clicks and beeps.
 
 ## Run it
@@ -37,16 +37,21 @@ Privacy & Security** and click **Open Anyway** (or run `xattr -dr com.apple.quar
 ## Try it
 
 - The first launch walks you through three welcome steps, including microphone access.
-- Drag a plug into a friend's jack, or click a socket to send the next free cord flying in.
+- Drag a plug into a friend's jack, or click a socket to send the next free cord flying in. That
+  knocks: the lamp blinks and the practice friends let you in after a moment.
 - When the line opens the mic drops onto your screen. Hold its TALK key (or anywhere on it) to
-  talk; drag or fling it anywhere. Its orange side key changes the effect; the grey one buzzes.
+  talk; drag or fling it anywhere. Its orange side key changes the effect; the grey one buzzes. The
+  key on its left side opens the line's menu: mute, do not disturb, voice effect, hang up.
 - Space (while the board is in front) or ⌥Space (from any app) also talks. `F` changes the effect.
 - Drag any Talkie window by its title strip. Its round keys close and minimise it (⌘W closes too).
-- Click the menu bar icon to put the mic away or bring it back. Right-click it to add a friend, see
-  the open line, voice effects, settings (or ⌘,) and **Simulate**: pick a friend on the board and
-  have them patch in, talk, or switch do not disturb, or have someone who isn't on your board try to
-  patch in (only the eight on your board can open a line; anyone else just knocks). When a friend
-  patches in, the open-line panel appears under the icon; muting them there only changes what you hear.
+- Click the menu bar icon to put the mic away or bring it back. Right-click it to add a friend, voice
+  effects, settings (or ⌘,) and **Simulate**: pick a friend on the board and have them knock, talk or
+  switch do not disturb, or turn off **Answers Your Knocks** to see what a decline looks like from
+  your side (no answer, and the cord drops out after 20 seconds). Someone who isn't on your board
+  can only try to knock: you get a note and nothing rings.
+- When a friend knocks you hear it, their jack pulses and the mic drops with their name on it.
+  Press **LET IN** on the mic (hold it to talk straight away), hold ⌥Space, or click their jack.
+  The **×** on the mic's name tag declines, and they're never told.
 
 ### Adding friends
 
