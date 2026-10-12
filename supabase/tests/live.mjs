@@ -1,4 +1,5 @@
-// Live checks against the real project: LiveKit accepts the pass, knocks arrive over Realtime (with row-level security), presence works.
+// Live checks against the real project: knocks arrive over Realtime (with row-level security), LiveKit
+// accepts the pass, and check-ins show who is around.
 const URL_ = "https://xakscsouugwlyefaieyl.supabase.co";
 const WS = "wss://xakscsouugwlyefaieyl.supabase.co/realtime/v1/websocket";
 const KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Inhha3Njc291dWd3bHllZmFpZXlsIiwicm9sZSI6ImFub24iLCJpYXQiOjE3OTE4Mjk2ODEsImV4cCI6MjEwNzQwNTY4MX0.TXm0gnDiNHm3On8pV5zSZ4Fjot7qq-_8uCNqVb9lnZQ";
@@ -43,6 +44,7 @@ function channel(topic, config, token) {
 const a = await user("Ada"), b = await user("Bo");
 await call(a.token, "/rest/v1/board", { method: "POST", body: { owner: a.id, friend: b.id, jack: 0 } });
 await call(b.token, "/rest/v1/board", { method: "POST", body: { owner: b.id, friend: a.id, jack: 0 } });
+
 
 // B listens for knocks the way the app does: inserts and updates where B is the callee.
 const knocks = channel(`knocks-${b.id}`, {
@@ -89,29 +91,21 @@ check(v.status === 200, `LiveKit accepts the pass (${v.status} ${vtext.slice(0, 
 const bad = await fetch(`${host}/rtc/validate?access_token=${pass.token.slice(0, -4)}AAAA`);
 check(bad.status !== 200, `LiveKit refuses a forged pass (${bad.status})`);
 
-// Presence: A shows up on their channel; B, watching it, sees A arrive with A's DND state.
-const mine = channel(`presence-${a.id}`, { broadcast: { self: false }, presence: { key: a.id, enabled: true } }, a.token);
-await mine.ready;
-mine.send("presence", { type: "presence", event: "track", payload: { dnd: true } });
-await sleep(800);
-const watch = channel(`presence-${a.id}`, { broadcast: { self: false }, presence: { key: "", enabled: true } }, b.token);
-await watch.ready;
-// A arrives either in the first presence_state or in a presence_diff right after.
-let seen = null;
-for (let i = 0; i < 20 && !seen; i++) {
-  await sleep(250);
-  const e = watch.events.find(e => (e.event === "presence_state" && e.payload?.[a.id]) || (e.event === "presence_diff" && e.payload?.joins?.[a.id]));
-  seen = e && (e.event === "presence_state" ? e.payload[a.id] : e.payload.joins[a.id]);
-}
-check(!!seen && seen.metas?.[0]?.dnd === true, "B sees A is here, on do not disturb");
-mine.close();
-let left = null;
-for (let i = 0; i < 40 && !left; i++) {
-  await sleep(250);
-  left = watch.events.find(e => e.event === "presence_diff" && e.payload?.leaves?.[a.id]);
-}
-check(!!left, "B sees A go away when A quits");
-watch.close();
+// Who's around: A checks in on DND; B (who has A on their board) hears it live, C doesn't.
+const c = await user("Cy");
+const cfg = { broadcast: { self: false }, presence: { key: "" }, postgres_changes: [{ event: "UPDATE", schema: "public", table: "profiles" }] };
+const bw = channel(`talkie-${b.id}`, cfg, b.token), cw = channel(`talkie-${c.id}`, cfg, c.token);
+await bw.ready; await cw.ready; await sleep(1200);
+await call(a.token, "/rest/v1/rpc/check_in", { method: "POST", body: { do_not_disturb: true } });
+const heard = async (w, test) => { for (let i = 0; i < 24; i++) { const e = w.events.find(e => e.event === "postgres_changes" && e.payload?.data?.record?.id === a.id && test(e.payload.data.record)); if (e) return e; await sleep(250); } return null; };
+check(!!(await heard(bw, r => r.last_seen && r.dnd === true)), "B hears A check in, on do not disturb");
+const here = (await call(b.token, "/rest/v1/rpc/friends_here", { method: "POST" })).json;
+check(here.length === 1 && here[0].id === a.id && here[0].here && here[0].dnd, "B's list of who's here has A");
+await call(a.token, "/rest/v1/rpc/sign_off", { method: "POST" });
+check(!!(await heard(bw, r => r.last_seen === null)), "B hears A sign off");
+check(!cw.events.some(e => e.event === "postgres_changes" && e.payload?.data?.record?.id === a.id), "C hears none of it");
+check((await call(b.token, "/rest/v1/rpc/friends_here", { method: "POST" })).json[0]?.here === false, "after signing off, A isn't here");
+bw.close(); cw.close();
 
 await call(a.token, `/rest/v1/board?owner=eq.${a.id}`, { method: "DELETE" });
 await call(b.token, `/rest/v1/board?owner=eq.${b.id}`, { method: "DELETE" });

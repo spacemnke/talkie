@@ -40,15 +40,28 @@ final class Operator {
     /// Knocks in flight, by the friend's account.
     private var outgoing: [UUID: UUID] = [:]
     private var incoming: [UUID: UUID] = [:]
-    private var myChannel: RealtimeChannelV2?
-    private var knockChannel: RealtimeChannelV2?
-    private var friendChannels: [UUID: RealtimeChannelV2] = [:]
-    private var presenceKeys: [UUID: Set<String>] = [:]
-    private var subscriptions: [RealtimeSubscription] = []
+    /// Everything live comes down one channel: knocks to and from you, and friends' check-ins.
+    private var channel: RealtimeChannelV2?
     private var listeners: [Task<Void, Never>] = []
     private var retry: Task<Void, Never>?
+    private var heartbeat: Task<Void, Never>?
+    /// When each friend last checked in, by this Mac's clock, and whether they're on DND.
+    private var heardFrom: [UUID: Date] = [:]
+    private var friendDND: [UUID: Bool] = [:]
+    /// A friend who hasn't checked in for this long has gone away (they check in every 30 seconds).
+    private static let awayAfter: TimeInterval = 75
 
-    private struct PresenceState: Codable { let dnd: Bool }
+    /// A friend's profile as it changes: they checked in, signed off or switched DND.
+    private struct CheckIn: Decodable {
+        let id: UUID
+        let dnd: Bool
+        let lastSeen: String?
+
+        enum CodingKeys: String, CodingKey {
+            case id, dnd
+            case lastSeen = "last_seen"
+        }
+    }
 
     private struct ProfileRow: Decodable {
         let id: UUID
@@ -103,11 +116,27 @@ final class Operator {
         Task { await connectNow() }
     }
 
+    /// Back to the practice board: sign off so friends see you go, then hang up everything.
     func disconnect() {
         retry?.cancel()
         Task {
-            await line.leave()
+            await signOff(timeout: 2)
             await teardown()
+        }
+    }
+
+    /// Quitting: tell friends you've gone, so you show as away at once rather than after a minute.
+    func signOff(timeout: TimeInterval) async {
+        heartbeat?.cancel()
+        let client = self.client, line = self.line
+        await withTaskGroup(of: Void.self) { group in
+            group.addTask {
+                _ = try? await client.rpc("sign_off").execute()
+                await line.leave()
+            }
+            group.addTask { try? await Task.sleep(nanoseconds: UInt64(timeout * 1_000_000_000)) }
+            _ = await group.next()
+            group.cancelAll()
         }
     }
 
@@ -130,10 +159,12 @@ final class Operator {
                 friends[row.jack] = Friend(id: id, name: (row.profile?.name ?? "FRIEND").uppercased(), online: false)
             }
             model.operatorConnected(code: profile.code, friends: friends)
-            try await listenForKnocks(me: profile.id)
-            try await showUp(me: profile.id)
-            for account in accounts.values { await watch(account) }
+            try await listen(me: profile.id)
+            await checkIn()
+            await refreshPresence()
+            await catchUpKnocks()
             status = .online(code: profile.code)
+            startHeartbeat()
         } catch {
             let reason = Self.describe(error)
             status = .offline(reason)
@@ -147,15 +178,14 @@ final class Operator {
     }
 
     private func teardown() async {
+        heartbeat?.cancel()
+        heartbeat = nil
         for task in listeners { task.cancel() }
         listeners = []
-        for subscription in subscriptions { subscription.cancel() }
-        subscriptions = []
         await client.removeAllChannels()
-        myChannel = nil
-        knockChannel = nil
-        friendChannels = [:]
-        presenceKeys = [:]
+        channel = nil
+        heardFrom = [:]
+        friendDND = [:]
         outgoing = [:]
         incoming = [:]
     }
@@ -187,65 +217,24 @@ final class Operator {
         localIDs[account].flatMap { model.board.jack(of: $0) }
     }
 
-    // MARK: Presence
+    // MARK: Listening
 
-    /// Your own presence channel: friends watch it to see you're around, and whether you're on DND.
-    private func showUp(me: UUID) async throws {
-        let key = me.uuidString.lowercased()
-        let channel = client.channel("presence-\(key)") { $0.presence.key = key }
-        // Presence has to be switched on for the channel before it can be tracked.
-        subscriptions.append(channel.onPresenceChange { _ in })
-        try await channel.subscribeWithError()
-        myChannel = channel
-        try await channel.track(PresenceState(dnd: model.board.doNotDisturb))
-    }
-
-    private func publishPresence(dnd: Bool) {
-        guard let myChannel else { return }
-        Task { try? await myChannel.track(PresenceState(dnd: dnd)) }
-    }
-
-    /// Watch a friend's presence channel for when they come and go.
-    private func watch(_ account: UUID) async {
-        guard friendChannels[account] == nil else { return }
-        let channel = client.channel("presence-\(account.uuidString.lowercased())")
-        let changes = channel.presenceChange()
-        friendChannels[account] = channel
-        listeners.append(Task { [weak self] in
-            for await change in changes { self?.presenceChanged(account, change) }
-        })
-        try? await channel.subscribeWithError()
-    }
-
-    private func unwatch(_ account: UUID) {
-        guard let channel = friendChannels.removeValue(forKey: account) else { return }
-        presenceKeys[account] = nil
-        Task { await client.removeChannel(channel) }
-    }
-
-    private func presenceChanged(_ account: UUID, _ change: any PresenceAction) {
-        var keys = presenceKeys[account] ?? []
-        keys.formUnion(change.joins.keys)
-        keys.subtract(change.leaves.keys)
-        presenceKeys[account] = keys
-        let dnd = (try? change.decodeJoins(as: PresenceState.self))?.last?.dnd
-        guard let jack = jack(of: account) else { return }
-        let online = !keys.isEmpty
-        model.apply { b in
-            var events = b.setFriendOnline(jack, online, now: model.now)
-            if online, let dnd { events += b.setFriendDoNotDisturb(jack, dnd, now: model.now) }
-            return events
+    /// One channel for everything live. Calling it again replaces the channel (the server sometimes
+    /// drops one, and the SDK doesn't rejoin those).
+    private func listen(me: UUID) async throws {
+        for task in listeners { task.cancel() }
+        listeners = []
+        if let old = channel {
+            channel = nil
+            await client.removeChannel(old)
         }
-    }
-
-    // MARK: Knocks
-
-    private func listenForKnocks(me: UUID) async throws {
         let id = me.uuidString.lowercased()
-        let channel = client.channel("knocks-\(id)")
+        let channel = client.channel("talkie-\(id)")
         let toMe = channel.postgresChange(InsertAction.self, schema: "public", table: "knocks", filter: .eq("callee", value: id))
         let toMeChanged = channel.postgresChange(UpdateAction.self, schema: "public", table: "knocks", filter: .eq("callee", value: id))
         let mineChanged = channel.postgresChange(UpdateAction.self, schema: "public", table: "knocks", filter: .eq("caller", value: id))
+        // Row-level security limits these to your own profile and the people on your board.
+        let checkIns = channel.postgresChange(UpdateAction.self, schema: "public", table: "profiles")
         listeners.append(Task { [weak self] in
             for await action in toMe { self?.knocked(try? action.decodeRecord(as: KnockRow.self, decoder: JSONDecoder())) }
         })
@@ -255,8 +244,100 @@ final class Operator {
         listeners.append(Task { [weak self] in
             for await action in mineChanged { self?.myKnockChanged(try? action.decodeRecord(as: KnockRow.self, decoder: JSONDecoder())) }
         })
+        listeners.append(Task { [weak self] in
+            for await action in checkIns { self?.checkedIn(try? action.decodeRecord(as: CheckIn.self, decoder: JSONDecoder())) }
+        })
         try await channel.subscribeWithError()
-        knockChannel = channel
+        self.channel = channel
+    }
+
+    /// Every ten seconds: friends who went quiet are away, a dropped channel is rebuilt (catching up
+    /// on anything missed), and every thirty seconds you check in.
+    private func startHeartbeat() {
+        heartbeat?.cancel()
+        heartbeat = Task { [weak self] in
+            var beat = 0
+            while !Task.isCancelled {
+                try? await Task.sleep(nanoseconds: 10_000_000_000)
+                guard let self, !Task.isCancelled else { return }
+                beat += 1
+                await self.pulse(checkIn: beat % 3 == 0)
+            }
+        }
+    }
+
+    private func pulse(checkIn due: Bool) async {
+        guard let me, case .online = status else { return }
+        let now = Date()
+        for (account, heard) in heardFrom where now.timeIntervalSince(heard) >= Self.awayAfter {
+            heardFrom[account] = nil
+            showPresence(account)
+        }
+        if channel?.status == .unsubscribed {
+            try? await listen(me: me)
+            await refreshPresence()
+            await catchUpKnocks()
+        }
+        if due { await checkIn() }
+    }
+
+    // MARK: Who's around
+
+    /// Tell the operator you're here, and whether you're on do not disturb.
+    private func checkIn() async {
+        _ = try? await client.rpc("check_in", params: ["do_not_disturb": model.board.doNotDisturb]).execute()
+    }
+
+    /// Ask who on your board is around right now (on connecting, and after missing updates).
+    private func refreshPresence() async {
+        struct Here: Decodable { let id: UUID; let here: Bool; let dnd: Bool }
+        guard let rows: [Here] = try? await client.rpc("friends_here").execute().value else { return }
+        for row in rows {
+            heardFrom[row.id] = row.here ? Date() : nil
+            friendDND[row.id] = row.dnd
+            showPresence(row.id)
+        }
+    }
+
+    /// A friend checked in, signed off or switched DND.
+    private func checkedIn(_ change: CheckIn?) {
+        guard let change, change.id != me else { return }
+        heardFrom[change.id] = change.lastSeen == nil ? nil : Date()
+        friendDND[change.id] = change.dnd
+        showPresence(change.id)
+    }
+
+    private func showPresence(_ account: UUID) {
+        guard let jack = jack(of: account) else { return }
+        let here = heardFrom[account].map { Date().timeIntervalSince($0) < Self.awayAfter } ?? false
+        let dnd = friendDND[account] ?? false
+        model.apply { b in
+            var events = b.setFriendOnline(jack, here, now: model.now)
+            if here { events += b.setFriendDoNotDisturb(jack, dnd, now: model.now) }
+            return events
+        }
+    }
+
+    // MARK: Knocks
+
+    /// Knocks that arrived (or were answered) while the channel was down.
+    private func catchUpKnocks() async {
+        guard let me else { return }
+        let since = ISO8601DateFormatter().string(from: Date().addingTimeInterval(-Switchboard.knockTimeout))
+        if let rows: [KnockRow] = try? await client.from("knocks").select()
+            .eq("callee", value: me.uuidString.lowercased())
+            .eq("status", value: "knocking")
+            .gt("created_at", value: since)
+            .execute().value {
+            for knock in rows where incoming[knock.caller] != knock.id { knocked(knock) }
+        }
+        for knockID in Array(outgoing.values) {
+            if let rows: [KnockRow] = try? await client.from("knocks").select()
+                .eq("id", value: knockID.uuidString.lowercased())
+                .execute().value, let knock = rows.first {
+                myKnockChanged(knock)
+            }
+        }
     }
 
     /// Someone knocked. If they're on your board it rings; otherwise you only get a note.
@@ -267,8 +348,9 @@ final class Operator {
             return
         }
         incoming[knock.caller] = knock.id
+        heardFrom[knock.caller] = Date()
         model.apply { b in
-            // A knock means they're here, even if their presence hasn't arrived yet.
+            // A knock means they're here, even if their check-in hasn't arrived yet.
             let here = b.setFriendOnline(jack, true, now: model.now)
             return here + b.friendKnocks(jack, now: model.now)
         }
@@ -362,7 +444,7 @@ final class Operator {
         for jack in old.incoming.keys where !new.isLineOpen(jack) {
             if let id = friendID(jack, old) { hangUp(id) }
         }
-        if old.doNotDisturb != new.doNotDisturb { publishPresence(dnd: new.doNotDisturb) }
+        if old.doNotDisturb != new.doNotDisturb { Task { await checkIn() } }
         if old.talking != new.talking { line.setTalking(new.talking) }
         if old.muted != new.muted, let peer = line.peer, let id = localIDs[peer] {
             line.setPeerMuted(new.muted.contains(id))
@@ -441,8 +523,8 @@ final class Operator {
         let found: [Found] = try await client.rpc("lookup_code", params: ["friend_code": code]).execute().value
         guard let person = found.first else { return nil }
         let id = localID(for: person.id)
-        let here = !(presenceKeys[person.id] ?? []).isEmpty
-        return Invite(code, Friend(id: id, name: person.name.uppercased(), online: here))
+        // Whether they're around shows once they're saved to your board.
+        return Invite(code, Friend(id: id, name: person.name.uppercased(), online: false))
     }
 
     /// A friend went onto a jack: save it and start watching for them.
@@ -452,7 +534,7 @@ final class Operator {
         Task {
             do {
                 try await client.from("board").upsert(Row(owner: me, friend: account, jack: jack), onConflict: "owner,friend").execute()
-                await watch(account)
+                await refreshPresence()
             } catch {
                 let reason = Self.describe(error)
                 model.apply { b in
@@ -467,7 +549,7 @@ final class Operator {
     /// A friend was ejected: take them off the server's board too.
     func removeFriend(_ friendID: Int) {
         guard let me, let account = accounts[friendID] else { return }
-        unwatch(account)
+        heardFrom[account] = nil
         Task {
             try? await client.from("board").delete()
                 .eq("owner", value: me.uuidString.lowercased())

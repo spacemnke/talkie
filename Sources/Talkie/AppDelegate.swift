@@ -190,6 +190,16 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
 
     func applicationShouldTerminateAfterLastWindowClosed(_ sender: NSApplication) -> Bool { false }
 
+    /// Signs off first, so friends see you go at once. Never waits more than two seconds.
+    func applicationShouldTerminate(_ sender: NSApplication) -> NSApplication.TerminateReply {
+        guard let online = model.online else { return .terminateNow }
+        Task {
+            await online.signOff(timeout: 2)
+            NSApp.reply(toApplicationShouldTerminate: true)
+        }
+        return .terminateLater
+    }
+
     // MARK: Board window
 
     @objc func showBoard() {
