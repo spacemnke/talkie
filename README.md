@@ -10,10 +10,25 @@ drops out of the menu bar on a coiled cord and floats above every app: hold it (
 
 ## Status
 
-Step 1 of 3: the board, in the Relay design. The switchboard, patch cords with physics and
-haptics, knocking, the floating Relay mic, adding friends by code, voice effects, settings and the
-welcome steps all work, with simulated friends and codes. There's no networking or real audio yet; the sounds
-are the board's own clicks and beeps.
+Real lines between Macs, in their first version. Talkie signs in to its operator (Supabase) on
+launch, gets you a permanent code, keeps your board of eight on the server, shows who's around, and
+carries knocks. When someone lets you in, LiveKit carries your voices. A practice board with simulated
+friends is in the menu bar menu.
+
+Not yet: voice effects on real lines (they only change the practice board), more than one real line
+at a time, and notarization.
+
+## Test it with a friend
+
+1. Both of you install Talkie from the latest build (below) on a Mac with macOS 14 or newer, and
+   let it use the microphone.
+2. Each of you opens the switchboard: the LCD shows your code (also under **ADD**). Swap codes.
+3. Press **ADD**, type the other's code and press **Check**. Do it both ways: your knock only rings
+   for someone who has you on their board.
+4. Drag a cord into their jack. They hear a knock and their mic drops with your name on it. They
+   press **LET IN** (or hold it to talk at once); then hold the mic or ⌥Space to talk.
+
+The menu bar menu's first line says whether you're online, and why not if you aren't.
 
 ## Run it
 
@@ -38,14 +53,15 @@ Privacy & Security** and click **Open Anyway** (or run `xattr -dr com.apple.quar
 
 - The first launch walks you through three welcome steps, including microphone access.
 - Drag a plug into a friend's jack, or click a socket to send the next free cord flying in. That
-  knocks: the lamp blinks and the practice friends let you in after a moment.
+  knocks: the lamp blinks until they let you in (practice friends do after a moment).
 - When the line opens the mic drops onto your screen. Hold its TALK key (or anywhere on it) to
   talk; drag or fling it anywhere. Its orange side key changes the effect; the grey one buzzes. The
   key on its left side opens the line's menu: mute, do not disturb, voice effect, hang up.
 - Space (while the board is in front) or ⌥Space (from any app) also talks. `F` changes the effect.
 - Drag any Talkie window by its title strip. Its round keys close and minimise it (⌘W closes too).
 - Click the menu bar icon to put the mic away or bring it back. Right-click it to add a friend, voice
-  effects, settings (or ⌘,) and **Simulate**: pick a friend on the board and have them knock, talk or
+  effects, settings (or ⌘,) and **Practice Board**. On the practice board, **Simulate** picks a
+  friend and has them knock, talk or
   switch do not disturb, or turn off **Answers Your Knocks** to see what a decline looks like from
   your side (no answer, and the cord drops out after 20 seconds). Someone who isn't on your board
   can only try to knock: you get a note and nothing rings.
@@ -58,13 +74,13 @@ Privacy & Security** and click **Open Anyway** (or run `xattr -dr com.apple.quar
 It all happens on the switchboard. Press **ADD** on the deck, or click the free socket (08).
 
 - The top panel turns into code entry. Type or paste a friend's code and press **Check** (or Return).
-  `TLK-ZOE7`, `TLK-PIP3` and `TLK-NICO` work; `TLK-0000` doesn't. The LCD says how it went and the
-  friend lands on the jack that's lit orange. Esc or **×** puts the panel away.
+  The LCD says how it went and the friend lands on the jack that's lit orange. Esc or **×** puts
+  the panel away. On the practice board `TLK-ZOE7`, `TLK-PIP3` and `TLK-NICO` work; `TLK-0000` doesn't.
 - Your own code sits next to it. **Copy** copies it; **Send card** shares a picture of your line card
   with the code, through Messages, Mail or AirDrop. Pasting that whole message into a board still works.
 - The board holds eight friends. To make room, right-click a jack and choose **Eject**. Their code
-  brings them back: the sample friends' codes are `TLK-` and their name, like `TLK-MAYA` (the full list
-  is in `Sources/TalkieCore/Invite.swift`).
+  brings them back. (On the practice board the sample friends' codes are `TLK-` and their name, like
+  `TLK-MAYA`; the full list is in `Sources/TalkieCore/Invite.swift`.)
 
 ## Website
 
@@ -78,7 +94,8 @@ Open `site/index.html` in a browser to preview it.
 | Path | What's there |
 | --- | --- |
 | `Sources/TalkieCore` | Switchboard rules, cord and mic physics. No AppKit, fully unit-tested. |
-| `Sources/Talkie` | The Mac app: menu bar item, board window (SwiftUI), floating mic overlay, sounds. |
+| `Sources/Talkie` | The Mac app: menu bar item, board window (SwiftUI), floating mic overlay, sounds. `Online/` talks to the operator (Supabase) and carries voices (LiveKit). |
+| `supabase/` | The operator's schema and the function that hands out line tokens. |
 | `Tests/TalkieCoreTests` | `swift test` |
 | `design/` | The interactive prototype and the decisions behind it. |
 | `site/`, `web/` | The website at switchtalkie.com and the Worker that serves it. |

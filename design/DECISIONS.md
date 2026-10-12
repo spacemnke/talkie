@@ -29,6 +29,9 @@ a patch cord into their jack. They hear a knock; when they let you in, the line 
 | The mic's shape | The Relay handset: a rounded body with a slotted grille, a round TALK key on the front, FX (orange) and buzz side keys, effect and level lights, and a name tag on a cord from the top. Replaces the earlier squeeze-handle mic. |
 | Name | **Talkie.** switchtalkie.com is the address, not a new name. |
 | Ejected friends | Only the eight on your board can knock. Someone you ejected (or never added) can still try: nothing rings and your LCD notes it (`BEA · TRIED TO KNOCK · ADD THEM TO LET IN`). Pressing ADD then offers their code. On their side it's just no answer, so they can't tell they were ejected. |
+| Accounts and codes | No sign-up: Talkie signs in anonymously on first launch and the operator (Supabase) gives you a permanent code. Your board of eight lives on the server, so it comes back after a reinstall only if the sign-in does (kept in Talkie's preferences). Adding someone is one-way: their knock only rings for you once you've added them too. |
+| The line | When a knock is let in, both Macs join a LiveKit room named after that knock; a server function hands out the passes, only to the two people in it. The microphone is published on joining and muted except while you hold to talk. Real lines are one at a time for now (the practice board still does three-way). Voice effects only change the practice board until they're wired into the outgoing audio. |
+| Practice board | The simulated friends stay, one click away in the menu bar menu, so Talkie can be tried alone. |
 | Domain | **switchtalkie.com**: the switchboard plus the walkie-talkie, and the line between them. Hosts the landing page now and invite links later. |
 
 ## Still open
@@ -67,6 +70,6 @@ out of that whole message when it's pasted in. The welcome screen shows it too.
 
 ## Build order
 
-1. **The board** — native SwiftUI switchboard, floating mic and adding friends by code, with real cord physics and haptics. Simulated friends and codes, no networking. *(in progress)*
-2. **The line** — two Macs talking at the same time over WebRTC (likely LiveKit), with mute, DND and the four effects.
-3. **The operator** — accounts, real codes behind ADD, presence lamps, launch at login (likely Supabase).
+1. **The board** — native SwiftUI switchboard, floating mic and adding friends by code, with real cord physics and haptics. *(done; the practice board keeps it)*
+2. **The line** — two Macs talking at the same time over LiveKit, with knocks, mute and DND. *(first version; effects and three-way still to come)*
+3. **The operator** — accounts, real codes behind ADD, presence lamps (Supabase). *(first version)* Next: notarization, launch at login by default.
