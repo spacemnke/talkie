@@ -63,6 +63,7 @@ final class MicOverlay {
     private let model: BoardModel
     private weak var statusButton: NSStatusBarButton?
     private var panel: OverlayPanel?
+    private var input: MicInputView?
     private var screen: NSScreen?
     private var frames = 0
 
@@ -92,6 +93,7 @@ final class MicOverlay {
         input.autoresizingMask = [.width, .height]
         container.addSubview(host)
         container.addSubview(input)
+        self.input = input
         p.contentView = container
         p.setFrame(screen.frame, display: false)
         p.orderFrontRegardless()
@@ -110,6 +112,12 @@ final class MicOverlay {
             let anchor = CGPoint(x: f.midX - screen.frame.minX, y: screen.frame.maxY - f.minY - 3)
             if anchor.distance(to: model.anchor) > 0.5 { model.anchor = anchor }
         }
+    }
+
+    /// Opens a menu from the mic, at a point in the overlay's top-left coordinates.
+    func popUp(_ menu: NSMenu, at point: CGPoint) {
+        guard let input else { return }
+        menu.popUp(positioning: nil, at: point, in: input)
     }
 
     /// Called every frame: re-anchor now and then, and decide whether the mouse belongs to the mic.
@@ -185,12 +193,15 @@ struct FloatingMicView: View {
         }
 
         let flags = board.flags
-        let tagLamp: MicArt.TagLamp = flags.rx ? .rx : (flags.tx ? .tx : (board.openJacks.isEmpty ? .blink : .on))
+        // Someone knocking takes over the tag and the front key until you answer.
+        let knocker = board.knockers.first.flatMap { board.friend($0)?.name }
+        let tagLamp: MicArt.TagLamp = knocker != nil ? .blink : flags.rx ? .rx : (flags.tx ? .tx : (board.openJacks.isEmpty ? .blink : .on))
         let state = MicArt.State(
             squeezed: board.talking,
+            knocking: knocker != nil,
             effectIndex: board.effect.rawValue,
             level: Int((snap.micLevel * 5).rounded()),
-            tag: board.liveNames.joined(separator: "+"),
+            tag: knocker ?? board.liveNames.joined(separator: "+"),
             tagLabel: tagLabel(board),
             tagLamp: tagLamp,
             blinkPhase: blinkPhase

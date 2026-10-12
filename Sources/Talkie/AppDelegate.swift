@@ -7,7 +7,6 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     let model = BoardModel()
     private var statusItem: NSStatusItem?
     private var boardWindow: DeviceNSWindow?
-    private var lineWindow: DeviceNSWindow?
     private var effectsWindow: DeviceNSWindow?
     private var settingsWindow: DeviceNSWindow?
     private var welcomeWindow: DeviceNSWindow?
@@ -37,8 +36,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             self?.overlay?.frame()
             self?.updateStatusIcon()
         }
-        // Someone patched in: show who, with the talk key and private mute, under the menu bar icon.
-        model.onIncoming = { [weak self] jack in self?.showLine(jack) }
+        // The mic's settings key: mute, do not disturb, effects and hanging up, right where you talk.
+        model.onMicMenu = { [weak self] point in self?.showMicMenu(at: point) }
         model.start()
         let firstRun = !UserDefaults.standard.bool(forKey: Self.finishedWelcome)
         if firstRun { showWelcome() } else { showBoard() }
@@ -102,30 +101,51 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         if first { dropMicSoon() }
     }
 
-    /// When a friend patches in it appears without taking focus from what you're doing.
-    func showLine(_ jack: Int, activate: Bool = false) {
-        lineWindow?.close()
-        let view = IncomingLineView(model: model, jack: jack) { [weak self] in
-            MainActor.assumeIsolated {
-                self?.lineWindow?.close()
-                self?.lineWindow = nil
-            }
-        }
-        let window = makeDeviceWindow(title: "Open Line", content: view)
-        window.level = .floating
-        placeUnderMenuBarIcon(window)
-        lineWindow = window
-        if activate {
-            window.makeKeyAndOrderFront(nil)
-            NSApp.activate()
-        } else {
-            window.orderFrontRegardless()
-        }
-    }
+    // MARK: The mic's menu
 
-    @objc private func showOpenLine() {
-        guard let jack = model.board.focus.flatMap({ model.board.isLineOpen($0) ? $0 : nil }) ?? model.board.openJacks.first else { return }
-        showLine(jack, activate: true)
+    /// Everything about the line, from the mic's settings key: who's knocking, private mute for each
+    /// person on the line, do not disturb, the voice effect, and hanging up.
+    private func showMicMenu(at point: CGPoint) {
+        let board = model.board
+        let menu = NSMenu()
+        func item(_ title: String, on: Bool = false, _ action: @escaping @MainActor () -> Void) {
+            let item = ClosureMenuItem(title: title) { MainActor.assumeIsolated { action() } }
+            item.state = on ? .on : .off
+            menu.addItem(item)
+        }
+        func name(_ jack: Int) -> String { board.friend(jack)?.name.capitalized ?? "Them" }
+
+        for jack in board.knockers {
+            item("Let \(name(jack)) In") { [weak self] in self?.model.letIn(jack) }
+            item("Decline \(name(jack))") { [weak self] in self?.model.decline(jack) }
+        }
+        if !board.knockers.isEmpty { menu.addItem(.separator()) }
+
+        for jack in board.openJacks {
+            let muted = board.isMuted(jack)
+            item("Mute \(name(jack))", on: muted) { [weak self] in self?.model.setMuted(jack, !muted) }
+        }
+        item("Do Not Disturb", on: board.doNotDisturb) { [weak self] in self?.model.toggleDoNotDisturb() }
+        let effects = NSMenu()
+        for effect in Effect.allCases {
+            let e = ClosureMenuItem(title: effect.title.capitalized) { [weak self] in
+                MainActor.assumeIsolated { self?.model.setEffect(effect) }
+            }
+            e.state = board.effect == effect ? .on : .off
+            effects.addItem(e)
+        }
+        let effectItem = NSMenuItem(title: "Voice Effect", action: nil, keyEquivalent: "")
+        effectItem.submenu = effects
+        menu.addItem(effectItem)
+        menu.addItem(.separator())
+
+        if board.isLive || !board.knockingOut.isEmpty {
+            item("Hang Up") { [weak self] in self?.model.hangUpAll() }
+        }
+        item("Put the Mic Away") { [weak self] in self?.model.putMicAway() }
+        item("Open Switchboard") { [weak self] in self?.showBoard() }
+        item("Settings…") { [weak self] in self?.showSettings() }
+        overlay?.popUp(menu, at: point)
     }
 
     @objc func showEffects() {
@@ -276,7 +296,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         let event = NSApp.currentEvent
         if event?.type == .rightMouseUp || event?.modifierFlags.contains(.control) == true {
             showMenu()
-        } else if model.board.isLive || model.mic.isVisible {
+        } else if model.board.wantsMic || model.mic.isVisible {
             model.toggleMic()
         } else {
             toggleBoard()
@@ -286,11 +306,14 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     private func updateStatusIcon() {
         let board = model.board
         let look: StatusIcon.Look
-        if board.doNotDisturb && !board.isLive {
+        if !board.knocks.isEmpty {
+            // Someone's knocking: blink quickly until you answer.
+            look = Int(model.now / 0.22) % 2 == 0 ? .live : .dim
+        } else if board.doNotDisturb && !board.isLive {
             look = .doNotDisturb
         } else if !board.openJacks.isEmpty {
             look = .live
-        } else if board.isLive {
+        } else if !board.knockingOut.isEmpty {
             look = Int(model.now / 0.36) % 2 == 0 ? .live : .dim
         } else {
             look = .idle
@@ -305,9 +328,6 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         let menu = NSMenu()
         add(menu, "Open Switchboard", #selector(showBoard))
         add(menu, "Add a Friend…", #selector(addFriend))
-        if !model.board.openJacks.isEmpty {
-            add(menu, "Open Line", #selector(showOpenLine))
-        }
         add(menu, "Voice Effects…", #selector(showEffects))
         add(menu, model.mic.isVisible ? "Put the Mic Away" : "Bring the Mic Out", #selector(toggleMicItem))
         add(menu, "Do Not Disturb", #selector(toggleDoNotDisturb)).state = model.board.doNotDisturb ? .on : .off
@@ -321,21 +341,24 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             guard let friend else { continue }
             let item = NSMenuItem(title: friend.name.capitalized, action: nil, keyEquivalent: "")
             let actions = NSMenu()
-            add(actions, "Patches In", #selector(simulatePatchIn(_:))).tag = jack
+            add(actions, "Knocks", #selector(simulateKnock(_:))).tag = jack
             add(actions, "Talks", #selector(simulateTalk(_:))).tag = jack
             let dnd = add(actions, "Do Not Disturb", #selector(simulateDoNotDisturb(_:)))
             dnd.tag = jack
             dnd.state = friend.doNotDisturb ? .on : .off
+            let answers = add(actions, "Answers Your Knocks", #selector(simulateAnswers(_:)))
+            answers.tag = jack
+            answers.state = model.answersKnocks(jack) ? .on : .off
             item.submenu = actions
             friends.addItem(item)
         }
-        // Anyone who isn't on the board can only knock.
+        // Anyone who isn't on the board can't really knock: you only get a note.
         let offBoard = Invite.samples.filter { model.board.jack(of: $0.friend.id) == nil }
         if !offBoard.isEmpty {
             friends.addItem(.separator())
             for invite in offBoard {
-                friends.addItem(ClosureMenuItem(title: "\(invite.friend.name.capitalized) Tries to Patch In") { [weak self] in
-                    MainActor.assumeIsolated { self?.model.simulateKnock(invite) }
+                friends.addItem(ClosureMenuItem(title: "\(invite.friend.name.capitalized) Tries to Knock") { [weak self] in
+                    MainActor.assumeIsolated { self?.model.simulateOffBoardKnock(invite) }
                 })
             }
         }
@@ -363,7 +386,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     @objc private func toggleMicItem() { model.toggleMic() }
     @objc private func toggleDoNotDisturb() { model.toggleDoNotDisturb() }
     @objc private func nextEffect() { model.cycleEffect() }
-    @objc private func simulatePatchIn(_ sender: NSMenuItem) { model.simulateIncoming(sender.tag) }
+    @objc private func simulateKnock(_ sender: NSMenuItem) { model.simulateKnock(sender.tag) }
+    @objc private func simulateAnswers(_ sender: NSMenuItem) { model.setAnswersKnocks(sender.tag, !model.answersKnocks(sender.tag)) }
     @objc private func simulateTalk(_ sender: NSMenuItem) { model.simulateFriendTalks(sender.tag) }
     @objc private func simulateDoNotDisturb(_ sender: NSMenuItem) {
         model.simulateFriendDoNotDisturb(sender.tag, !(model.board.friend(sender.tag)?.doNotDisturb ?? false))

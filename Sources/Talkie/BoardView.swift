@@ -420,7 +420,8 @@ private struct SocketPanel: View {
             }
         }
         .accessibilityLabel(accessibilityText(friend))
-        .accessibilityHint(friend == nil ? "Adds a friend here: type their code." : "Patches the next free cord into this jack, or pulls it out.")
+        .accessibilityHint(friend == nil ? "Adds a friend here: type their code."
+            : model.board.knocks[index] != nil ? "Lets them in." : "Knocks with the next free cord, or pulls it out.")
         .accessibilityActions {
             if friend != nil {
                 Button("Eject from the board") { model.eject(index) }
@@ -509,6 +510,13 @@ struct LampView: View {
             TimelineView(.periodic(from: .now, by: 0.18)) { context in
                 let on = Int(context.date.timeIntervalSinceReferenceDate / 0.18) % 2 == 0
                 bulb(on ? Palette.orange : Palette.lampOff)
+            }
+        case .knock:
+            // Someone knocking on you: a slow orange pulse with a glow, until you let them in.
+            TimelineView(.periodic(from: .now, by: 0.3)) { context in
+                let on = Int(context.date.timeIntervalSinceReferenceDate / 0.3) % 2 == 0
+                bulb(on ? Palette.orange : Palette.white)
+                    .background(Circle().fill(on ? Palette.orangeGlow : Color.clear).padding(-5))
             }
         case .rx:
             TimelineView(.periodic(from: .now, by: 0.08)) { context in

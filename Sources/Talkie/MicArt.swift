@@ -2,21 +2,28 @@ import SwiftUI
 import TalkieCore
 
 /// Draws the Relay handset: a rounded body with a slotted grille, a round TALK key on the front,
-/// the effect (orange) and buzz keys on the side, and a name tag riding on the cord above it.
-/// Works in the design's own units (the Relay master is 140 × 270) so it can be checked against it.
+/// the effect (orange) and buzz keys on the right side, a settings key on the left, and a name tag
+/// riding on the cord above it. When someone knocks, the front key reads LET IN and the tag gets
+/// a decline key. Works in the design's own units (the Relay master is 140 × 270).
 enum MicArt {
     /// The part of the drawing that's on screen: from the name tag down to the body's shadow.
     static let viewBox = CGRect(x: 8, y: 52, width: 124, height: 196)
     /// Where the coiled cord from the menu bar joins: the top of the name tag.
     static let cordExit = CGPoint(x: 66, y: 56)
-    /// The side keys, for hit-testing clicks.
+    /// The keys, for hit-testing clicks.
     static let effectKey = CGRect(x: 102, y: 116, width: 20, height: 28)
     static let buzzKey = CGRect(x: 102, y: 150, width: 20, height: 28)
+    static let settingsKey = CGRect(x: 6, y: 116, width: 20, height: 28)
+    static let frontKey = CGRect(x: 42, y: 181, width: 44, height: 44)
+    /// The × at the right end of the name tag while someone is knocking.
+    static let declineKey = CGRect(x: 94, y: 54, width: 31, height: 27)
 
     enum TagLamp { case on, blink, tx, rx }
 
     struct State {
         var squeezed: Bool
+        /// Someone is knocking: the front key lets them in, the tag's × turns them away.
+        var knocking = false
         /// 0 is off, 1...4 the four effects.
         var effectIndex: Int
         /// 0...5 input level lights.
@@ -95,9 +102,21 @@ enum MicArt {
             if s.tagLamp == .tx { circle(25, 67.5, 6, fill: Palette.orangeGlow) }
             circle(25, 67.5, 3.3, fill: lamp, line: 0.7, lineColor: Palette.white)
             // Long names shrink to fit; the full list is in the accessibility label.
-            let right = ctx.resolve(Text(s.tagLabel).font(Fonts.jura(8, "Bold")).tracking(0.5).foregroundStyle(Palette.orange))
-            let rightWidth = right.measure(in: CGSize(width: 60, height: 20)).width
-            ctx.draw(right, at: CGPoint(x: 117, y: 67.5), anchor: .trailing)
+            let rightWidth: CGFloat
+            if s.knocking {
+                // The decline key: a little raised key with a ×.
+                rect(CGRect(x: 99, y: 60, width: 18, height: 15), radius: 3, fill: Palette.ink)
+                rect(CGRect(x: 99, y: 58.5, width: 18, height: 15), radius: 3, fill: Palette.plate, line: 1.2)
+                var x = Path()
+                x.move(to: CGPoint(x: 105, y: 63)); x.addLine(to: CGPoint(x: 111, y: 69))
+                x.move(to: CGPoint(x: 111, y: 63)); x.addLine(to: CGPoint(x: 105, y: 69))
+                ctx.stroke(x, with: .color(ink), style: StrokeStyle(lineWidth: 1.4, lineCap: .round))
+                rightWidth = 18
+            } else {
+                let right = ctx.resolve(Text(s.tagLabel).font(Fonts.jura(8, "Bold")).tracking(0.5).foregroundStyle(Palette.orange))
+                rightWidth = right.measure(in: CGSize(width: 60, height: 20)).width
+                ctx.draw(right, at: CGPoint(x: 117, y: 67.5), anchor: .trailing)
+            }
             let room = 117 - rightWidth - 6 - 33
             var size: CGFloat = 11
             var name = ctx.resolve(Text(s.tag).font(Fonts.jura(size, "SemiBold")).tracking(0.6).foregroundStyle(Palette.white))
@@ -111,11 +130,13 @@ enum MicArt {
         // One hard shadow for the body.
         ctx.fill(body.offsetBy(dx: 6, dy: 8), with: .color(Palette.shadow))
 
-        // Side keys, tucked behind the body: effect and buzz.
+        // Side keys, tucked behind the body: effect and buzz on the right, settings on the left.
         rect(CGRect(x: 104, y: 118, width: 16, height: 24), radius: 4, fill: Palette.orange, line: 2)
         rect(CGRect(x: 104, y: 152, width: 16, height: 24), radius: 4, fill: Palette.plate, line: 2)
         label("FX", size: 5.6, weight: "Bold", color: ink, at: CGPoint(x: 114, y: 130))
         label("BZ", size: 5.6, weight: "Bold", color: ink, at: CGPoint(x: 114, y: 164))
+        rect(CGRect(x: 8, y: 118, width: 16, height: 24), radius: 4, fill: Palette.plate, line: 2)
+        for dy: CGFloat in [-4, 0, 4] { circle(14, 130 + dy, 1.15, fill: ink) }
 
         // Body and grille.
         ctx.fill(body, with: .color(Palette.shell))
@@ -143,11 +164,14 @@ enum MicArt {
         circle(26, 171, 1.9, fill: Palette.plate, line: 0.7)
         circle(102, 171, 1.9, fill: Palette.plate, line: 0.7)
 
+        // A glow around the key while someone's waiting to be let in.
+        if s.knocking { circle(64, 202, 25, fill: Palette.orangeGlow) }
         circle(64, 203, 20, fill: ink)
         let keyY: CGFloat = s.squeezed ? 203.5 : 201
-        circle(64, keyY, 18, fill: s.squeezed ? Palette.orange : Palette.white, line: 1.5)
-        circle(64, keyY, 12, fill: nil, line: 1)
-        label("TALK", size: 6.5, weight: "SemiBold", color: ink, at: CGPoint(x: 64, y: keyY))
+        circle(64, keyY, 18, fill: s.squeezed || s.knocking ? Palette.orange : Palette.white, line: 1.5)
+        // LET IN is wider than TALK, so the inner ring steps aside for it.
+        if !s.knocking { circle(64, keyY, 12, fill: nil, line: 1) }
+        label(s.knocking ? "LET IN" : "TALK", size: s.knocking ? 6 : 6.5, weight: "SemiBold", color: ink, at: CGPoint(x: 64, y: keyY))
         label("TALKIE", size: 7.7, weight: "Regular", color: ink, at: CGPoint(x: 64, y: 226.5))
     }
 }

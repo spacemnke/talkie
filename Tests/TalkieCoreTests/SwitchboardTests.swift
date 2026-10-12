@@ -4,20 +4,86 @@ import XCTest
 final class SwitchboardTests: XCTestCase {
     // Jacks on the sample board: 0 MAYA, 1 OTTO, 2 JUN (away), 3 RUBY (do not disturb), 4 LEO (away), 5 INÈS, 6 KAI, 7 free.
 
+    /// Knock, and the friend lets you in. Then wait out the LCD's "let you in" note.
     private func openLine(_ b: inout Switchboard, cord: CordID = .a, jack: Int = 0, at t: TimeInterval = 0) {
         _ = b.patch(cord, into: jack, now: t)
-        _ = b.tick(now: t + Switchboard.connectDelay)
+        _ = b.friendAnswers(jack, now: t + 0.5)
+        _ = b.tick(now: t + 2.5)
     }
 
-    func testPatchingOpensTheLineAndDropsTheMic() {
+    func testPatchingKnocksAndTheLineOpensWhenTheyLetYouIn() {
         var b = Switchboard()
-        XCTAssertEqual(b.patch(.a, into: 0, now: 0), [.plugged, .micDrop])
+        XCTAssertEqual(b.patch(.a, into: 0, now: 0), [.plugged, .knockOut])
+        XCTAssertFalse(b.isLive, "nothing opens until they answer")
         XCTAssertEqual(b.lamp(for: 0), .blink)
-        XCTAssertEqual(b.readout(now: 0.1).sub, "PATCHING IN…")
-        XCTAssertEqual(b.tick(now: 0.5), [])
-        XCTAssertEqual(b.tick(now: 0.8), [.lineOpened])
+        XCTAssertEqual(b.readout(now: 0.1).sub, "KNOCKING…")
+        XCTAssertEqual(b.knockingOut, [0])
+        XCTAssertEqual(b.tick(now: 5), [])
+
+        XCTAssertEqual(b.friendAnswers(0, now: 6), [.lineOpened, .micDrop])
         XCTAssertEqual(b.lamp(for: 0), .on)
-        XCTAssertEqual(b.readout(now: 3.8), Readout(big: "MAYA", sub: "LINE A · OPEN · 00:03"))
+        XCTAssertEqual(b.readout(now: 6), Readout(big: "MAYA", sub: "LET YOU IN · LINE A OPEN"))
+        _ = b.tick(now: 9)
+        XCTAssertEqual(b.readout(now: 9), Readout(big: "MAYA", sub: "LINE A · OPEN · 00:03"))
+    }
+
+    func testAKnockNobodyAnswersDropsOutTheSameAsADecline() {
+        var b = Switchboard()
+        _ = b.patch(.a, into: 0, now: 0)
+        XCTAssertEqual(b.tick(now: Switchboard.knockTimeout - 1), [])
+        XCTAssertEqual(b.tick(now: Switchboard.knockTimeout), [.unplugged])
+        XCTAssertNil(b.patches[.a], "the cord drops out")
+        XCTAssertEqual(b.readout(now: Switchboard.knockTimeout), Readout(big: "MAYA", sub: "NO ANSWER"))
+    }
+
+    func testAFriendKnocksAndYouLetThemIn() {
+        var b = Switchboard()
+        XCTAssertEqual(b.friendKnocks(1, now: 0), [.knockIn, .micDrop])
+        XCTAssertFalse(b.isLive)
+        XCTAssertTrue(b.wantsMic, "the mic comes down to answer")
+        XCTAssertEqual(b.lamp(for: 1), .knock)
+        XCTAssertEqual(b.readout(now: 0), Readout(big: "OTTO", sub: "KNOCKING · CLICK THE JACK TO LET IN"))
+
+        XCTAssertEqual(b.letIn(1, now: 2), [.lineOpened])
+        XCTAssertEqual(b.openJacks, [1])
+        XCTAssertEqual(b.liveNames, ["OTTO"])
+        XCTAssertEqual(b.lamp(for: 1), .on)
+    }
+
+    func testDecliningIsSilent() {
+        var b = Switchboard()
+        _ = b.friendKnocks(1, now: 0)
+        XCTAssertEqual(b.decline(1, now: 1), [.click, .micStow])
+        XCTAssertTrue(b.knocks.isEmpty)
+        XCTAssertFalse(b.isLive)
+        XCTAssertEqual(b.readout(now: 1), Readout(big: "OTTO", sub: "DECLINED · THEY WON'T KNOW"))
+    }
+
+    func testClickingOrPluggingIntoAKnockingJackLetsThemIn() {
+        var b = Switchboard()
+        _ = b.friendKnocks(1, now: 0)
+        XCTAssertEqual(b.tapJack(1, now: 1).events, [.lineOpened])
+        XCTAssertTrue(b.isLineOpen(1))
+
+        var c = Switchboard()
+        _ = c.friendKnocks(5, now: 0)
+        XCTAssertEqual(c.patch(.b, into: 5, now: 1), [.plugged, .lineOpened])
+        XCTAssertEqual(c.patches[.b]?.status, .open)
+    }
+
+    func testAKnockYouDontAnswerStops() {
+        var b = Switchboard()
+        _ = b.friendKnocks(1, now: 0)
+        XCTAssertEqual(b.tick(now: Switchboard.knockTimeout), [.micStow])
+        XCTAssertTrue(b.knocks.isEmpty)
+        XCTAssertEqual(b.readout(now: Switchboard.knockTimeout).sub, "KNOCKED · MISSED")
+    }
+
+    func testKnockingOnEachOtherOpensTheLine() {
+        var b = Switchboard()
+        _ = b.patch(.a, into: 1, now: 0)
+        XCTAssertEqual(b.friendKnocks(1, now: 1), [.lineOpened, .micDrop])
+        XCTAssertTrue(b.isLineOpen(1))
     }
 
     func testPullingTheLastPlugStowsTheMic() {
@@ -28,16 +94,17 @@ final class SwitchboardTests: XCTestCase {
         XCTAssertEqual(b.readout(now: 2), Readout(big: "READY TO PATCH", sub: "PLUG INTO A FRIEND"))
     }
 
-    func testDoNotDisturbHoldsThePatchUntilItsSwitchedOff() {
+    func testDoNotDisturbHoldsTheKnockUntilItsSwitchedOff() {
         var b = Switchboard()
         XCTAssertEqual(b.patch(.a, into: 3, now: 0), [.plugged])
         XCTAssertEqual(b.lamp(for: 3), .dnd)
         XCTAssertFalse(b.isLive)
-        XCTAssertEqual(b.readout(now: 0).sub, "RUBY · DO NOT DISTURB · PATCH WAITS")
+        XCTAssertEqual(b.readout(now: 0).sub, "RUBY · DO NOT DISTURB · KNOCK WAITS")
+        XCTAssertEqual(b.tick(now: 60), [], "a waiting cord doesn't time out")
 
-        XCTAssertEqual(b.setFriendDoNotDisturb(3, false, now: 1), [.micDrop])
+        XCTAssertEqual(b.setFriendDoNotDisturb(3, false, now: 61), [.knockOut])
         XCTAssertEqual(b.lamp(for: 3), .blink)
-        XCTAssertEqual(b.tick(now: 1 + Switchboard.connectDelay), [.lineOpened])
+        XCTAssertEqual(b.friendAnswers(3, now: 62), [.lineOpened, .micDrop])
         XCTAssertEqual(b.lamp(for: 3), .on)
 
         // Switching it back on mid-call closes the line but leaves the cord in.
@@ -152,22 +219,35 @@ final class SwitchboardTests: XCTestCase {
         XCTAssertFalse(b.isMuted(0))
     }
 
-    func testIncomingPatchDropsTheMicAndCanBeHungUp() {
+    func testALineYouLetInCanBeHungUp() {
         var b = Switchboard()
-        XCTAssertEqual(b.friendPatchesIn(1, now: 0), [.lineOpened, .micDrop])
-        XCTAssertEqual(b.lamp(for: 1), .on)
-        XCTAssertEqual(b.liveNames, ["OTTO"])
+        _ = b.friendKnocks(1, now: 0)
+        _ = b.letIn(1, now: 1)
         let tap = b.tapJack(1, now: 3)
         XCTAssertNil(tap.cord)
         XCTAssertEqual(tap.events, [.lineClosed, .micStow])
     }
 
-    func testYourDoNotDisturbHoldsIncomingPatches() {
+    func testYourDoNotDisturbHoldsKnocks() {
         var b = Switchboard()
         _ = b.setDoNotDisturb(true, now: 0)
         XCTAssertTrue(b.flags.dnd)
-        XCTAssertEqual(b.friendPatchesIn(1, now: 1), [])
+        XCTAssertEqual(b.friendKnocks(1, now: 1), [], "no knock sound, no mic")
+        XCTAssertFalse(b.wantsMic)
+        XCTAssertEqual(b.heldKnocks, [1])
+        // Switching it off lets the knock through.
+        XCTAssertEqual(b.setDoNotDisturb(false, now: 5), [.click, .knockIn, .micDrop])
+        XCTAssertEqual(b.knockers, [1])
+    }
+
+    func testHangingUpEverything() {
+        var b = Switchboard()
+        openLine(&b)
+        _ = b.friendKnocks(1, now: 1)
+        _ = b.letIn(1, now: 2)
+        XCTAssertEqual(b.hangUpAll(now: 3), [.unplugged, .micStow])
         XCTAssertFalse(b.isLive)
+        XCTAssertNil(b.patches[.a])
     }
 
     func testEffectsCycleBackToOff() {

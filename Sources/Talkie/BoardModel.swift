@@ -48,10 +48,12 @@ final class BoardModel {
 
     let sound = SoundBoard()
     @ObservationIgnored var onFrame: (() -> Void)?
-    /// A friend just patched in to you (the jack they're on).
-    @ObservationIgnored var onIncoming: ((_ jack: Int) -> Void)?
-    @ObservationIgnored private var knownIncoming: Set<Int> = []
-    /// Who last knocked, so the add panel can offer their code.
+    /// The mic's settings key was pressed, at this point in the overlay.
+    @ObservationIgnored var onMicMenu: ((CGPoint) -> Void)?
+    /// Simulated friends (by id) who don't answer your knocks.
+    @ObservationIgnored private(set) var unanswering: Set<Int> = []
+    @ObservationIgnored private var lastKnockSound: TimeInterval = 0
+    /// Who last tried to knock from off the board, so the add panel can offer their code.
     @ObservationIgnored private var lastKnock: (code: String, at: TimeInterval)?
     @ObservationIgnored private let defaults = UserDefaults.standard
 
@@ -85,9 +87,10 @@ final class BoardModel {
     private var reduceMotion: Bool { NSWorkspace.shared.accessibilityDisplayShouldReduceMotion }
 
     init() {
-        // Start like the prototype: cord A is already in Maya's jack (simulated friend).
+        // Start like the prototype: cord A is in Maya's jack and she has let you in (simulated friend).
         let t = now
-        _ = board.patch(.a, into: 0, now: t - Switchboard.connectDelay)
+        _ = board.patch(.a, into: 0, now: t - 3)
+        _ = board.friendAnswers(0, now: t - 3)
         _ = board.tick(now: t)
 
         // What you set last time: sound, volume, who you muted, where you left the mic.
@@ -116,7 +119,9 @@ final class BoardModel {
         let events = b.tick(now: t)
         if b != board { board = b }
         handle(events)
-        noticeIncoming()
+        answerKnocks(t)
+        // A knock keeps knocking until you answer it.
+        if !board.knocks.isEmpty, t - lastKnockSound >= 3 { playKnock(t) }
 
         stepCords()
 
@@ -188,15 +193,11 @@ final class BoardModel {
         let events = change(&b)
         board = b
         handle(events)
-        noticeIncoming()
     }
 
-    private func noticeIncoming() {
-        let current = Set(board.incoming.keys)
-        guard current != knownIncoming else { return }
-        let arrived = current.subtracting(knownIncoming)
-        knownIncoming = current
-        if let jack = arrived.min() { onIncoming?(jack) }
+    private func playKnock(_ t: TimeInterval) {
+        lastKnockSound = t
+        sound.play(.knock)
     }
 
     private func handle(_ events: [BoardEvent]) {
@@ -213,6 +214,8 @@ final class BoardModel {
             case .buzz: sound.play(.buzz)
             case .micDrop: dropMic()
             case .micStow: stowMic()
+            case .knockIn: playKnock(now)
+            case .knockOut: sound.play(.knockSoft)
             case .addFriend: sound.play(.click); focusRequest += 1
             }
         }
@@ -384,9 +387,46 @@ final class BoardModel {
         }
     }
 
+    // MARK: Knocks
+
+    /// Let a knocking friend in.
+    func letIn(_ jack: Int) {
+        apply { $0.letIn(jack, now: now) }
+    }
+
+    /// Turn a knock away. They're never told.
+    func decline(_ jack: Int) {
+        apply { $0.decline(jack, now: now) }
+    }
+
+    func hangUpAll() {
+        apply { $0.hangUpAll(now: now) }
+    }
+
+    /// Simulated friends let you in after a moment, unless you've told one not to answer.
+    private func answerKnocks(_ t: TimeInterval) {
+        for jack in board.knockingOut {
+            guard let p = board.cord(at: jack).flatMap({ board.patches[$0] }), t - p.since >= 1.6,
+                  let f = board.friend(jack), !unanswering.contains(f.id) else { continue }
+            apply { $0.friendAnswers(jack, now: t) }
+        }
+    }
+
+    func answersKnocks(_ jack: Int) -> Bool {
+        guard let f = board.friend(jack) else { return false }
+        return !unanswering.contains(f.id)
+    }
+
+    func setAnswersKnocks(_ jack: Int, _ on: Bool) {
+        guard let f = board.friend(jack) else { return }
+        if on { unanswering.remove(f.id) } else { unanswering.insert(f.id) }
+    }
+
     // MARK: Talking, effects, settings
 
+    /// Talking while someone knocks lets them in first: answering and talking are one move.
     func startTalking() {
+        if board.openJacks.isEmpty, let jack = board.knockers.first { letIn(jack) }
         if !mic.isVisible || mic.mode == .retracting { dropMic() }
         apply { $0.startTalking(now: now) }
     }
@@ -426,10 +466,10 @@ final class BoardModel {
 
     // MARK: Simulated friends (until there's a network)
 
-    func simulateIncoming(_ jack: Int) { apply { $0.friendPatchesIn(jack, now: now) } }
-    func simulateKnock(_ invite: Invite) {
+    func simulateKnock(_ jack: Int) { apply { $0.friendKnocks(jack, now: now) } }
+    func simulateOffBoardKnock(_ invite: Invite) {
         lastKnock = (invite.code, now)
-        apply { $0.knock(from: invite.friend.name, now: now) }
+        apply { $0.offBoardKnock(from: invite.friend.name, now: now) }
     }
     func simulateFriendTalks(_ jack: Int) { apply { $0.friendTalks(jack, for: 2.5, now: now); return [] } }
     func simulateFriendDoNotDisturb(_ jack: Int, _ on: Bool) { apply { $0.setFriendDoNotDisturb(jack, on, now: now) } }
@@ -450,7 +490,13 @@ final class BoardModel {
     }
 
     func toggleMic() {
-        if mic.mode == .hidden || mic.mode == .retracting { dropMic() } else { stowMic() }
+        if mic.mode == .hidden || mic.mode == .retracting { dropMic() } else { putMicAway() }
+    }
+
+    /// Putting the mic away while someone knocks turns them away, the same as its × key.
+    func putMicAway() {
+        for jack in board.knockers { decline(jack) }
+        stowMic()
     }
 
     var isMicGrabbed: Bool { micGrab != nil }
@@ -465,9 +511,10 @@ final class BoardModel {
         mic.isVisible && micFrame.insetBy(dx: -4, dy: -4).contains(p)
     }
 
-    private enum MicKey { case effect, buzz }
+    private enum MicKey { case effect, buzz, settings, letIn, decline }
 
-    /// Which of the mic's side keys is under the pointer, in the drawing's own units.
+    /// Which of the mic's keys is under the pointer, in the drawing's own units.
+    /// The front key is only a key of its own while someone knocks; otherwise the whole mic talks.
     private func micKey(at p: CGPoint) -> MicKey? {
         let frame = micFrame
         guard frame.width > 0 else { return nil }
@@ -476,6 +523,11 @@ final class BoardModel {
         let point = CGPoint(x: x, y: y)
         if MicArt.effectKey.contains(point) { return .effect }
         if MicArt.buzzKey.contains(point) { return .buzz }
+        if MicArt.settingsKey.contains(point) { return .settings }
+        if !board.knocks.isEmpty {
+            if MicArt.declineKey.contains(point) { return .decline }
+            if MicArt.frontKey.contains(point) { return .letIn }
+        }
         return nil
     }
 
@@ -484,8 +536,13 @@ final class BoardModel {
             switch key {
             case .effect: cycleEffect()
             case .buzz: buzz()
+            case .settings: onMicMenu?(p)
+            case .decline: if let jack = board.knockers.first { decline(jack) }
+            case .letIn:
+                // Let them in, and keep holding to talk straight away.
+                if let jack = board.knockers.first { letIn(jack) }
             }
-            return
+            if key != .letIn { return }
         }
         guard mic.mode == .floating || mic.mode == .dropping else { return }
         var grab = MicGrab(offset: CGVector(dx: mic.position.x - p.x, dy: mic.position.y - p.y), start: p)

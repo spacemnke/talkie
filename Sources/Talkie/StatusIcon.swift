@@ -1,7 +1,7 @@
 import AppKit
 
 /// The menu bar icon: a jack. Idle and do-not-disturb are template images, so macOS tints them for
-/// light and dark menu bars; a live line is signal orange; connecting blinks the idle jack.
+/// light and dark menu bars; a live line is signal orange; a knock (either way) blinks it.
 enum StatusIcon {
     enum Look: Equatable { case idle, live, dim, doNotDisturb }
 

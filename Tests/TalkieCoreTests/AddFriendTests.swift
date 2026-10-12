@@ -97,34 +97,35 @@ final class AddFriendTests: XCTestCase {
     func testEjectingSomeoneOnALineHangsUp() {
         var board = Switchboard()
         _ = board.patch(.a, into: 0, now: 0)
-        _ = board.tick(now: Switchboard.connectDelay)
-        _ = board.friendPatchesIn(1, now: 1)
+        _ = board.friendAnswers(0, now: 0.5)
+        _ = board.friendKnocks(1, now: 1)
+        _ = board.letIn(1, now: 1)
         XCTAssertEqual(board.openJacks, [0, 1])
 
         XCTAssertEqual(board.removeFriend(at: 0, now: 2), [.unplugged]) // MAYA, on cord A
         XCTAssertNil(board.patches[.a])
 
-        XCTAssertEqual(board.removeFriend(at: 1, now: 3), [.unplugged, .lineClosed, .micStow]) // OTTO, who patched in to you
+        XCTAssertEqual(board.removeFriend(at: 1, now: 3), [.unplugged, .lineClosed, .micStow]) // OTTO, whom you let in
         XCTAssertFalse(board.isLive)
-        // An ejected friend can't patch in.
-        XCTAssertEqual(board.friendPatchesIn(1, now: 4), [])
+        // An ejected friend can't knock.
+        XCTAssertEqual(board.friendKnocks(1, now: 4), [])
     }
 
-    func testSomeoneOffYourBoardOnlyKnocks() {
+    func testSomeoneOffYourBoardCantKnock() {
         var board = Switchboard()
         _ = board.unpatch(.a, now: 0)
         _ = board.removeFriend(at: 0, now: 0) // MAYA
 
-        XCTAssertEqual(board.knock(from: "MAYA", now: 1), [.click])
-        XCTAssertFalse(board.isLive, "no line opens")
-        XCTAssertTrue(board.incoming.isEmpty)
-        XCTAssertEqual(board.readout(now: 1), Readout(big: "MAYA", sub: "KNOCKED · ADD THEM TO LET IN"))
+        XCTAssertEqual(board.offBoardKnock(from: "MAYA", now: 1), [.click])
+        XCTAssertFalse(board.wantsMic, "nothing rings")
+        XCTAssertTrue(board.knocks.isEmpty)
+        XCTAssertEqual(board.readout(now: 1), Readout(big: "MAYA", sub: "TRIED TO KNOCK · ADD THEM TO LET IN"))
 
-        // Adding her code puts her back on the board, and then she can patch in.
+        // Adding her code puts her back on the board, and then she can knock.
         guard case .added(let jack) = enter("TLK-MAYA", on: &board, now: 2).result else {
             return XCTFail("expected her to be added")
         }
-        XCTAssertEqual(board.friendPatchesIn(jack, now: 3), [.lineOpened, .micDrop])
+        XCTAssertEqual(board.friendKnocks(jack, now: 3), [.knockIn, .micDrop])
     }
 
     func testEveryCardHasItsOwnHoles() {

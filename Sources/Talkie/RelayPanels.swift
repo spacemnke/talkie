@@ -5,36 +5,6 @@ import TalkieCore
 
 // MARK: Shared pieces
 
-/// The big orange key: hold to talk, let go to listen. Losing the press (a cancelled gesture,
-/// the window closing) lets go too, so you can never get stuck talking.
-struct HoldToTalkKey: View {
-    let model: BoardModel
-    @GestureState private var pressing = false
-
-    var body: some View {
-        let shape = RoundedRectangle(cornerRadius: Radius.key, style: .continuous)
-        Text("HOLD TO TALK")
-            .font(Fonts.jura(12, "SemiBold"))
-            .tracking(1.4)
-            .foregroundStyle(Palette.ink)
-            .frame(maxWidth: .infinity, maxHeight: .infinity)
-            .background(shape.fill(Palette.orange))
-            .overlay(shape.strokeBorder(Palette.ink, lineWidth: 1.5))
-            .offset(y: pressing ? 3 : 0)
-            .background(shape.fill(Palette.ink).offset(y: 3))
-            .contentShape(shape)
-            .gesture(DragGesture(minimumDistance: 0).updating($pressing) { _, state, _ in state = true })
-            .onChange(of: pressing) { _, down in
-                if down { model.startTalking() } else { model.stopTalking() }
-            }
-            .onDisappear { if pressing { model.stopTalking() } }
-            .accessibilityElement()
-            .accessibilityLabel("Hold to talk")
-            .accessibilityHint("Or hold Option and Space from any app.")
-            .accessibilityAddTraits(.isButton)
-    }
-}
-
 /// A wide key with a label, for the bottom of panels.
 private struct WideKey: View {
     let title: String
@@ -57,85 +27,6 @@ private struct Caption: View {
             .font(Fonts.jura(8.5, "SemiBold"))
             .tracking(1.2)
             .foregroundStyle(Palette.mute)
-    }
-}
-
-// MARK: Open line
-
-/// Shown when a friend patches in: who it is, how long the line's been open, a big talk key,
-/// and two switches. Mute only changes what you hear; they're never told.
-struct IncomingLineView: View {
-    let model: BoardModel
-    let jack: Int
-    let close: () -> Void
-
-    var body: some View {
-        let board = model.board
-        let name = board.friend(jack)?.name ?? "LINE"
-        let open = board.isLineOpen(jack)
-        DeviceWindow(title: "OPEN LINE") {
-            VStack(alignment: .leading, spacing: 0) {
-                Text(open ? "\(name) PATCHED IN" : "LINE CLOSED")
-                    .font(Fonts.jura(13, "Medium"))
-                    .tracking(1.2)
-                    .padding(.top, 18)
-                TimelineView(.periodic(from: .now, by: 0.5)) { _ in
-                    HStack {
-                        VStack(alignment: .leading, spacing: 6) {
-                            Text(name)
-                                .font(Fonts.lcd(20))
-                                .tracking(1.6)
-                                .foregroundStyle(Palette.lcdText)
-                            Text(status(board))
-                                .font(Fonts.lcd(10, bold: false))
-                                .tracking(0.8)
-                                .foregroundStyle(Palette.orange)
-                        }
-                        Spacer(minLength: 0)
-                        LampView(lamp: board.lamp(for: jack), size: 10)
-                    }
-                    .padding(.horizontal, 18)
-                    .frame(height: 62)
-                    .insetPanel(Palette.key, radius: 7)
-                }
-                .padding(.top, 14)
-                HoldToTalkKey(model: model)
-                    .frame(height: 50)
-                    .padding(.top, 20)
-                    .disabled(!open)
-                Caption(text: "OPTION + SPACE")
-                    .frame(maxWidth: .infinity)
-                    .padding(.top, 13)
-                Rectangle().fill(Palette.ink).frame(height: 1).padding(.top, 13)
-                Toggle(isOn: Binding(get: { model.board.isMuted(jack) }, set: { model.setMuted(jack, $0) })) {
-                    VStack(alignment: .leading, spacing: 5) {
-                        Text("MUTE \(name)").font(Fonts.jura(11, "SemiBold")).tracking(1)
-                        Text("Only changes what you hear.").font(Fonts.jura(10, "Regular")).foregroundStyle(Palette.mute)
-                    }
-                }
-                .toggleStyle(RelayToggleStyle())
-                .padding(.top, 14)
-                Toggle(isOn: Binding(get: { model.board.doNotDisturb }, set: { on in
-                    if on != model.board.doNotDisturb { model.toggleDoNotDisturb() }
-                })) {
-                    Text("DO NOT DISTURB").font(Fonts.jura(11, "SemiBold")).tracking(1)
-                }
-                .toggleStyle(RelayToggleStyle())
-                .padding(.top, 14)
-            }
-            .foregroundStyle(Palette.ink)
-            .padding(EdgeInsets(top: 0, leading: 20, bottom: 18, trailing: 20))
-            .frame(width: 330)
-        }
-        .onChange(of: open) { _, isOpen in
-            guard !isOpen else { return }
-            DispatchQueue.main.asyncAfter(deadline: .now() + 1.5) { close() }
-        }
-    }
-
-    private func status(_ board: Switchboard) -> String {
-        guard let since = board.openedAt(jack) else { return "LINE CLOSED" }
-        return "LINE OPEN · " + Switchboard.clock(model.now - since)
     }
 }
 
