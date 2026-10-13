@@ -16,8 +16,8 @@ final class BoardModel {
     @ObservationIgnored private(set) var online: Operator?
 
     // Patch cords, in the board window's coordinates
-    private(set) var cords: [CordID: CordSim] = [.a: CordSim(), .b: CordSim()]
-    private(set) var zOrder: [CordID] = [.b, .a]
+    private(set) var cords: [CordID: CordSim] = Dictionary(uniqueKeysWithValues: CordID.allCases.map { ($0, CordSim()) })
+    private(set) var zOrder: [CordID] = CordID.allCases.reversed()
     private(set) var nearJack: Int?
     var holes: [Int: CGPoint] = [:]
     var docks: [CordID: CGPoint] = [:]
@@ -558,6 +558,12 @@ final class BoardModel {
         sound.play(.buzz)
         let name = board.friend(jack)?.name ?? "BUZZ"
         apply { $0.say(name, "BUZZED YOU", now: now, for: 1.7); return [] }
+    }
+
+    /// Someone on the call who isn't on your board buzzed.
+    func guestBuzzed(_ name: String) {
+        sound.play(.buzz)
+        apply { $0.say(name, "BUZZED THE LINE", now: now, for: 1.7); return [] }
     }
 
     /// Someone who isn't on your board tried to knock. Nothing rings; ADD will offer their code.

@@ -10,16 +10,18 @@ struct CordsLayer: View {
         let order = model.zOrder
         let docks = model.docks
         let cords = model.cords
+        let locked = Set(CordID.allCases.filter { model.board.isCordLocked($0) })
         ZStack(alignment: .topLeading) {
             Canvas { ctx, _ in
-                for c in order {
+                for c in order where !locked.contains(c) {
                     guard let dock = docks[c], let sim = cords[c] else { continue }
                     Self.drawCord(&ctx, dock: dock, sim: sim, color: Self.color(c))
                 }
             }
             .allowsHitTesting(false)
 
-            ForEach(order, id: \.self) { c in
+            // Cords your plan doesn't include stay in their docks (they show PRO).
+            ForEach(order.filter { !model.board.isCordLocked($0) }, id: \.self) { c in
                 if docks[c] != nil, let sim = cords[c] {
                     PlugView(color: Self.color(c), lifted: sim.dragging)
                         .frame(width: 32, height: 32)
@@ -38,6 +40,7 @@ struct CordsLayer: View {
         }
     }
 
+    /// A is the orange cord; the rest are slate.
     private static func color(_ c: CordID) -> Color {
         c == .a ? Palette.orange : Palette.slate
     }

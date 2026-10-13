@@ -251,8 +251,8 @@ struct SettingsView: View {
                 HStack(alignment: .center) {
                     VStack(alignment: .leading, spacing: 7) {
                         Text("PLAN · \(model.board.plan.title)").font(Fonts.jura(11, "SemiBold")).tracking(1)
-                        Text(model.board.plan == .pro ? "Eight jacks, no time limit, effects and knock sounds."
-                            : "Three jacks and ten-minute calls. Pro opens the whole board.")
+                        Text(model.board.plan == .pro ? "Eight jacks, calls of five, no time limit, effects and knock sounds."
+                            : "Three jacks, calls of three, ten minutes each. Pro opens the whole board.")
                             .font(Fonts.jura(10, "Regular"))
                             .foregroundStyle(Palette.mute)
                     }

@@ -40,6 +40,14 @@ final class Operator {
     /// Knocks in flight, by the friend's account.
     private var outgoing: [UUID: UUID] = [:]
     private var incoming: [UUID: UUID] = [:]
+    /// Friends knocking from a call of their own (letting them in means joining it).
+    private var incomingFromCall: Set<UUID> = []
+    /// The call you're on or starting: its first knock, which names its room. Nil between calls.
+    private var group: UUID?
+    /// Knocks go out one after another, so a second one knows which call the first started.
+    private var knockChain: Task<Void, Never>?
+    /// Who was talking at last count, for people on the call who aren't on your lines.
+    private var lastSpeaking: Set<UUID> = []
     /// Everything live comes down one channel: knocks to and from you, and friends' check-ins.
     private var channel: RealtimeChannelV2?
     private var listeners: [Task<Void, Never>] = []
@@ -101,12 +109,18 @@ final class Operator {
         let callerName: String
         let callerCode: String
         let status: String
+        /// The call this knock belongs to, if it isn't the first knock of one.
+        let groupID: UUID?
 
         enum CodingKeys: String, CodingKey {
             case id, caller, callee, status
             case callerName = "caller_name"
             case callerCode = "caller_code"
+            case groupID = "group_id"
         }
+
+        /// The call's first knock, which names its room.
+        var call: UUID { groupID ?? id }
     }
 
     private static let savedIDs = "onlineFriendIDs"
@@ -209,6 +223,9 @@ final class Operator {
         proStamp = nil
         outgoing = [:]
         incoming = [:]
+        incomingFromCall = []
+        group = nil
+        lastSpeaking = []
     }
 
     /// A short reason for the LCD.
@@ -216,6 +233,7 @@ final class Operator {
         let text = String(describing: error).lowercased()
         if text.contains("anonymous") { return "ANONYMOUS SIGN-INS ARE OFF" }
         if text.contains("livekit") { return "LIVEKIT ISN'T SET UP" }
+        if case FunctionsError.httpError(let code, _) = error, code == 409 { return "THE CALL IS FULL" }
         if error is URLError || text.contains("offline") || text.contains("network") { return "NO CONNECTION" }
         return "THE OPERATOR DIDN'T ANSWER"
     }
@@ -382,11 +400,12 @@ final class Operator {
             return
         }
         incoming[knock.caller] = knock.id
+        if knock.groupID != nil { incomingFromCall.insert(knock.caller) } else { incomingFromCall.remove(knock.caller) }
         heardFrom[knock.caller] = Date()
         model.apply { b in
             // A knock means they're here, even if their check-in hasn't arrived yet.
             let here = b.setFriendOnline(jack, true, now: model.now)
-            return here + b.friendKnocks(jack, now: model.now)
+            return here + b.friendKnocks(jack, now: model.now, fromCall: knock.groupID != nil)
         }
     }
 
@@ -394,21 +413,24 @@ final class Operator {
     private func theirKnockChanged(_ knock: KnockRow?) {
         guard let knock, knock.status == "cancelled", incoming[knock.caller] == knock.id else { return }
         incoming[knock.caller] = nil
+        incomingFromCall.remove(knock.caller)
         guard let jack = jack(of: knock.caller) else { return }
         model.apply { $0.friendStoppedKnocking(jack, now: model.now) }
     }
 
-    /// They let you in: open the line and join the room.
+    /// They let you in: open the line and join the call (theirs, if they brought you into one).
     private func myKnockChanged(_ knock: KnockRow?) {
         guard let knock, knock.status == "answered", outgoing[knock.callee] == knock.id else { return }
         outgoing[knock.callee] = nil
         guard let jack = jack(of: knock.callee) else { return }
+        group = knock.call
         model.apply { $0.friendAnswers(jack, now: model.now) }
         join(knock.id, peer: knock.callee)
     }
 
+    /// Into the call's room for a knock that was let in. If you're already in it (you brought this
+    /// person in), you stay put and just take the new line's time limit.
     private func join(_ knockID: UUID, peer: UUID) {
-        let muted = localIDs[peer].map { model.board.muted.contains($0) } ?? false
         VoiceEffects.shared.set(model.board.effect)
         Task {
             do {
@@ -416,15 +438,33 @@ final class Operator {
                     "line-token",
                     options: FunctionInvokeOptions(body: ["knock_id": knockID.uuidString.lowercased()])
                 )
-                // The server knows both plans: a free call, or no limit because one of you has Pro.
+                // The server knows everyone's plan: a free call's time left, or no limit.
                 if let limit = pass.limit, let jack = jack(of: peer) {
                     model.apply { $0.setCallLimit(jack, limit); return [] }
                 }
-                try await line.join(pass, peer: peer, muted: muted)
-                // Joined, but the line may have been closed on the board meanwhile.
-                if let jack = jack(of: peer), !model.board.isLineOpen(jack) { await line.leave() }
+                try await line.join(pass, muted: mutedAccounts())
+                // The line may have closed on the board meanwhile.
+                if let jack = jack(of: peer), !model.board.isLineOpen(jack) {
+                    if model.board.isLive { line.hangUp(on: peer) } else { await line.leave() }
+                    return
+                }
+                refreshOthers()
+                expectArrival(of: peer)
             } catch {
                 lineFailed(peer, error)
+            }
+        }
+    }
+
+    /// Someone you're on a line with should be in the room soon. If they never come, the line ends.
+    private func expectArrival(of peer: UUID) {
+        Task {
+            try? await Task.sleep(nanoseconds: 25_000_000_000)
+            guard let jack = jack(of: peer), model.board.isLineOpen(jack), line.isOpen, !line.has(peer) else { return }
+            model.apply { b in
+                let events = b.friendHungUp(jack, now: model.now)
+                b.say(b.friend(jack)?.name ?? "LINE", "DIDN'T COME ON THE LINE", now: model.now, for: 3)
+                return events
             }
         }
     }
@@ -441,16 +481,57 @@ final class Operator {
 
     private func lineEvent(_ event: Line.Event) {
         switch event {
-        case .peerLeft(let peer), .dropped(let peer):
-            guard let jack = jack(of: peer) else { return }
-            model.apply { $0.friendHungUp(jack, now: model.now) }
-        case .speaking(let peer, let on):
-            guard let jack = jack(of: peer) else { return }
-            model.apply { $0.setFriendTalking(jack, on); return [] }
-        case .buzz(let peer):
-            guard let jack = jack(of: peer) else { return }
-            model.friendBuzzed(jack)
+        case .left(let id), .hungUp(let id):
+            if let jack = jack(of: id), model.board.isLineOpen(jack) {
+                model.apply { $0.friendHungUp(jack, now: model.now) }
+            }
+            refreshOthers()
+        case .joined:
+            refreshOthers()
+        case .dropped:
+            // Your own connection went: every line on the call ends.
+            model.apply { b in
+                var events: [BoardEvent] = []
+                for jack in b.openJacks { events += b.friendHungUp(jack, now: model.now) }
+                return events
+            }
+        case .speaking(let ids):
+            lastSpeaking = ids
+            model.apply { b in
+                for jack in b.openJacks {
+                    guard let account = b.friend(jack).flatMap({ accounts[$0.id] }) else { continue }
+                    b.setFriendTalking(jack, ids.contains(account))
+                }
+                return []
+            }
+            refreshOthers()
+        case .buzz(let id):
+            if let jack = jack(of: id) {
+                model.friendBuzzed(jack)
+            } else if let name = line.members.first(where: { $0.id == id })?.name {
+                model.guestBuzzed(name)
+            }
         }
+    }
+
+    /// Everyone in the room who isn't on one of your lines: people someone else brought in.
+    private func refreshOthers() {
+        let board = model.board
+        guard line.isOpen, board.isLive else {
+            if !board.others.isEmpty { model.apply { $0.setOthers([]); return [] } }
+            return
+        }
+        let onLines = Set(board.openJacks.compactMap { board.friend($0).flatMap { accounts[$0.id] } })
+        let guests = line.members.filter { !onLines.contains($0.id) }.map { member in
+            let name = jack(of: member.id).flatMap { board.friend($0)?.name } ?? (member.name.isEmpty ? "GUEST" : member.name)
+            return Guest(id: member.id.uuidString, name: name, talking: lastSpeaking.contains(member.id))
+        }
+        guard guests != board.others else { return }
+        model.apply { $0.setOthers(guests); return [] }
+    }
+
+    private func mutedAccounts() -> Set<UUID> {
+        Set(model.board.muted.compactMap { accounts[$0] })
     }
 
     // MARK: Following the board
@@ -486,34 +567,69 @@ final class Operator {
         if old.doNotDisturb != new.doNotDisturb { Task { await checkIn() } }
         if old.talking != new.talking { line.setTalking(new.talking) }
         if old.effect != new.effect { VoiceEffects.shared.set(new.effect) }
-        if old.muted != new.muted, let peer = line.peer, let id = localIDs[peer] {
-            line.setPeerMuted(new.muted.contains(id))
+        if old.muted != new.muted { line.setMuted(mutedAccounts()) }
+        // Off the call: out of the room. Between calls, the next knock starts a new one.
+        if old.isLive && !new.isLive {
+            lastSpeaking = []
+            Task { await line.leave() }
+        }
+        if !new.isLive && new.knockingOut.isEmpty { group = nil }
+        if new.isLive, line.isOpen, Set(old.openJacks) != Set(new.openJacks) {
+            Task { refreshOthers() }
         }
     }
 
+    /// Knocks go out in order: the first knock of a call names it, and later ones join it.
     private func knock(_ friendID: Int) {
+        guard me != nil, accounts[friendID] != nil else { return }
+        let previous = knockChain
+        knockChain = Task { [weak self] in
+            await previous?.value
+            await self?.sendKnock(friendID)
+        }
+    }
+
+    private func sendKnock(_ friendID: Int, retried: Bool = false) async {
         guard let me, let account = accounts[friendID] else { return }
-        struct NewKnock: Encodable { let caller: UUID; let callee: UUID }
+        func stillKnocking() -> Bool { model.board.knockingOut.contains { model.board.friend($0)?.id == friendID } }
+        // The cord may have come out while earlier knocks went.
+        guard stillKnocking() else { return }
+        struct NewKnock: Encodable {
+            let caller: UUID
+            let callee: UUID
+            let groupID: UUID?
+            enum CodingKeys: String, CodingKey {
+                case caller, callee
+                case groupID = "group_id"
+            }
+        }
         struct Created: Decodable { let id: UUID }
-        Task {
-            do {
-                let created: Created = try await client.from("knocks")
-                    .insert(NewKnock(caller: me, callee: account), returning: .representation)
-                    .select("id")
-                    .single()
-                    .execute().value
-                outgoing[account] = created.id
-                // The cord may have come out while the knock was on its way.
-                let stillKnocking = model.board.knockingOut.contains { model.board.friend($0)?.id == friendID }
-                if !stillKnocking { cancelKnock(friendID) }
-            } catch {
-                let reason = Self.describe(error)
-                guard let jack = model.board.jack(of: friendID), let c = model.board.cord(at: jack) else { return }
-                model.apply { b in
-                    let events = b.unpatch(c, now: model.now)
-                    b.say("KNOCK FAILED", reason, now: model.now, for: 4)
-                    return events
-                }
+        do {
+            let created: Created = try await client.from("knocks")
+                .insert(NewKnock(caller: me, callee: account, groupID: group), returning: .representation)
+                .select("id")
+                .single()
+                .execute().value
+            outgoing[account] = created.id
+            guard stillKnocking() else {
+                cancelKnock(friendID)
+                return
+            }
+            // The first knock of a call names it.
+            if group == nil { group = created.id }
+        } catch {
+            // A call that ended under us: start a new one instead.
+            if !retried, group != nil, !model.board.isLive {
+                group = nil
+                await sendKnock(friendID, retried: true)
+                return
+            }
+            let reason = Self.describe(error)
+            guard let jack = model.board.jack(of: friendID), let c = model.board.cord(at: jack) else { return }
+            model.apply { b in
+                let events = b.unpatch(c, now: model.now)
+                b.say("KNOCK FAILED", reason, now: model.now, for: 4)
+                return events
             }
         }
     }
@@ -523,22 +639,43 @@ final class Operator {
         Task { try? await client.rpc("cancel_knock", params: ["knock_id": knockID.uuidString.lowercased()]).execute() }
     }
 
+    /// Let a knock in: into your call if you're on one (or starting one), or into theirs if they
+    /// knocked from a call.
     private func answer(_ friendID: Int) {
         guard let account = accounts[friendID], let knockID = incoming.removeValue(forKey: account) else { return }
-        struct Answered: Decodable { let status: String? }
+        let fromCall = incomingFromCall.remove(account) != nil
+        struct LetIn: Encodable {
+            let knockID: String
+            let intoGroup: String?
+            enum CodingKeys: String, CodingKey {
+                case knockID = "knock_id"
+                case intoGroup = "into_group"
+            }
+        }
+        struct Answered: Decodable {
+            let id: UUID?
+            let status: String?
+            let groupID: UUID?
+            enum CodingKeys: String, CodingKey {
+                case id, status
+                case groupID = "group_id"
+            }
+        }
+        let params = LetIn(knockID: knockID.uuidString.lowercased(), intoGroup: fromCall ? nil : group?.uuidString.lowercased())
         Task {
             do {
-                let answered: Answered = try await client.rpc("answer_knock", params: ["knock_id": knockID.uuidString.lowercased()]).execute().value
-                guard answered.status == "answered" else {
-                    // They gave up a moment before you answered.
+                let answered: Answered? = try await client.rpc("let_in", params: params).execute().value
+                guard let answered, answered.status == "answered" else {
+                    // They gave up a moment before you answered, or their call can't join yours.
                     guard let jack = jack(of: account) else { return }
                     model.apply { b in
                         let events = b.friendHungUp(jack, now: model.now)
-                        b.say(b.friend(jack)?.name ?? "TOO LATE", "STOPPED KNOCKING", now: model.now, for: 3)
+                        b.say(b.friend(jack)?.name ?? "TOO LATE", fromCall ? "ON ANOTHER CALL" : "STOPPED KNOCKING", now: model.now, for: 3)
                         return events
                     }
                     return
                 }
+                group = answered.groupID ?? answered.id ?? knockID
                 join(knockID, peer: account)
             } catch {
                 lineFailed(account, error)
@@ -546,9 +683,10 @@ final class Operator {
         }
     }
 
+    /// You closed a line: tell them. If it was your last, sync takes you out of the room.
     private func hangUp(_ friendID: Int) {
-        guard let account = accounts[friendID], line.peer == account else { return }
-        Task { await line.leave() }
+        guard let account = accounts[friendID], line.isOpen else { return }
+        line.hangUp(on: account)
     }
 
     func buzz() {

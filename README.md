@@ -15,22 +15,22 @@ launch, gets you a permanent code, keeps your board on the server, shows who's a
 carries knocks. When someone lets you in, LiveKit carries your voices, through your voice effect if
 you picked one. A practice board with simulated friends is in the menu bar menu.
 
-Not yet: payments (everyone is on Free until they open), more than one real line at a time, and
-notarization.
+Not yet: payments (everyone is on Free until they open) and notarization.
 
 ## Free and Pro
 
 | | Free | Pro |
 | --- | --- | --- |
 | Jacks (friends on your board) | 3 | 8 |
+| Group calls | 3 people (2 cords) | 5 people (4 cords) |
 | Call length | 10 minutes; no limit if the other person has Pro | No limit |
 | Voice effects (Canyon, Tin can, Helium, Machine) | Try them on your own voice | On your calls; only your own voice changes |
 | Knock sounds | The standard knock | Pick one per friend (right-click their jack) |
 | Knocking, mic, do not disturb, private mute, buzz | Yes | Yes |
 | Price | Free | $4 a month or $36 a year (payments open after the beta) |
 
-The server decides: your plan, how many jacks you can fill and knock from, and how long each line can
-last. The app shows locked jacks as **PRO**, counts down the last minute of a free call on the LCD,
+The server decides: your plan, how many jacks you can fill and knock from, how many people fit on a
+call, and how long each line can last. The app shows locked jacks as **PRO**, counts down the last minute of a free call on the LCD,
 and opens the **Talkie Pro** window when you reach for something Pro. To make someone Pro for
 testing, run `update public.profiles set pro = true where code = 'TLK-XXXX';` in the Supabase SQL
 editor (set `pro_until` to give it an end date). On the practice board, **Simulate → Free Plan / Pro
@@ -45,6 +45,10 @@ Plan** switches between the two, and **Free Call's Last Minute** skips to the en
    for someone who has you on their board.
 4. Drag a cord into their jack. They hear a knock and their mic drops with your name on it. They
    press **LET IN** (or hold it to talk at once); then hold the mic or ⌥Space to talk.
+5. For a group call, plug a second cord into another friend while you're talking, or let in a
+   friend who knocks: they join the same call and everyone hears everyone. Free calls hold three
+   people and Pro calls five; anyone on the call can bring someone in, within their own plan.
+   Someone a friend brought in shows on your LCD by name even if they aren't on your board.
 
 The menu bar menu's first line says whether you're online, and why not if you aren't.
 

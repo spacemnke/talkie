@@ -36,29 +36,55 @@ final class OnlineBoardTests: XCTestCase {
         XCTAssertFalse(b.flags.rx)
     }
 
-    func testOneLineAtATime() {
+    func testKnockingASecondFriendMakesItAGroupCall() {
         var b = board()
         _ = b.setFriendOnline(1, true, now: 0)
         _ = b.patch(.a, into: 0, now: 0)
-        XCTAssertEqual(b.patch(.b, into: 1, now: 1), [.denied], "still knocking on Sam")
-        XCTAssertEqual(b.readout(now: 1), Readout(big: "ONE LINE AT A TIME", sub: "HANG UP ON SAM FIRST"))
-        // Moving the same cord is fine: the knock on Sam ends.
-        XCTAssertEqual(b.patch(.a, into: 1, now: 2), [.plugged, .knockOut])
-        XCTAssertEqual(b.knockingOut, [1])
+        _ = b.friendAnswers(0, now: 1)
+        XCTAssertEqual(b.patch(.b, into: 1, now: 2), [.plugged, .knockOut], "Alex can join Sam and you")
+        XCTAssertEqual(b.callSize, 3)
+        _ = b.friendAnswers(1, now: 3)
+        XCTAssertEqual(b.openJacks, [0, 1])
+        _ = b.tick(now: 6)
+        XCTAssertEqual(b.readout(now: 6), Readout(big: "SAM + ALEX", sub: "3 PEOPLE ON THE LINE"))
     }
 
-    func testLettingSomeoneInDropsYourOwnKnockButNotAnOpenLine() {
+    func testLettingSomeoneInDuringACallBringsThemIn() {
         var b = board()
         _ = b.setFriendOnline(1, true, now: 0)
         _ = b.patch(.a, into: 0, now: 0)
-        _ = b.friendKnocks(1, now: 1)
-        XCTAssertEqual(b.letIn(1, now: 2), [.lineOpened])
-        XCTAssertNil(b.patches[.a], "your knock on Sam gave way")
-        XCTAssertEqual(b.openJacks, [1])
+        _ = b.friendAnswers(0, now: 1)
+        _ = b.friendKnocks(1, now: 2)
+        XCTAssertEqual(b.letIn(1, now: 3), [.lineOpened])
+        XCTAssertEqual(b.openJacks, [0, 1])
+    }
 
-        _ = b.friendKnocks(0, now: 3)
-        XCTAssertEqual(b.letIn(0, now: 4), [.denied])
-        XCTAssertEqual(b.readout(now: 4).sub, "HANG UP ON ALEX FIRST")
+    func testAKnockFromSomeoneElsesCallMeansJoiningIt() {
+        var b = board()
+        _ = b.setFriendOnline(1, true, now: 0)
+        _ = b.patch(.a, into: 0, now: 0)
+        _ = b.friendKnocks(1, now: 1, fromCall: true)
+        XCTAssertEqual(b.letIn(1, now: 2), [.lineOpened])
+        XCTAssertNil(b.patches[.a], "your own knock gave way: you joined their call")
+
+        _ = b.friendKnocks(0, now: 3, fromCall: true)
+        XCTAssertEqual(b.letIn(0, now: 4), [.denied], "one call at a time")
+        XCTAssertEqual(b.readout(now: 4), Readout(big: "SAM", sub: "ON ANOTHER CALL · HANG UP TO JOIN"))
+    }
+
+    func testPeopleOthersBroughtInShowOnTheLCD() {
+        var b = board()
+        _ = b.friendKnocks(0, now: 0)
+        _ = b.letIn(0, now: 1)
+        b.setOthers([Guest(id: "z", name: "ZOE", talking: true)])
+        XCTAssertEqual(b.callSize, 3)
+        XCTAssertTrue(b.flags.rx)
+        _ = b.tick(now: 5)
+        XCTAssertEqual(b.readout(now: 5), Readout(big: "SAM + ZOE", sub: "ZOE TALKING"))
+        _ = b.friendHungUp(0, now: 6)
+        XCTAssertTrue(b.others.isEmpty, "off the call, nobody else to hear")
+        b.setOthers([Guest(id: "z", name: "ZOE")])
+        XCTAssertTrue(b.others.isEmpty)
     }
 
     func testTheyHangUp() {

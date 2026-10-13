@@ -1,8 +1,9 @@
 import Foundation
 
+/// The deck's patch cords. Free uses A and B; Pro adds C and D, for calls of up to five.
 public enum CordID: Int, CaseIterable, Hashable, Sendable {
-    case a = 0, b = 1
-    public var label: String { self == .a ? "A" : "B" }
+    case a = 0, b = 1, c = 2, d = 3
+    public var label: String { ["A", "B", "C", "D"][rawValue] }
 }
 
 public enum LineStatus: Equatable, Sendable {
@@ -61,6 +62,22 @@ public struct Adding: Equatable, Sendable {
 public struct Flags: Equatable, Sendable {
     public var a = false, b = false, tx = false, rx = false, dnd = false
     public var effect: String?
+    /// Cords C and D, on Pro.
+    public var c = false, d = false
+}
+
+/// Someone on the call who isn't on one of your lines: a friend of a friend, brought in by someone
+/// else. You hear them; they come and go with the call. `id` is their account.
+public struct Guest: Equatable, Sendable {
+    public var id: String
+    public var name: String
+    public var talking: Bool
+
+    public init(id: String, name: String, talking: Bool = false) {
+        self.id = id
+        self.name = name
+        self.talking = talking
+    }
 }
 
 /// The rules of the board. Time is passed in, so it's deterministic and testable.
@@ -110,6 +127,10 @@ public struct Switchboard: Equatable, Sendable {
     public private(set) var lineLimits: [Int: TimeInterval] = [:]
     /// Lines that have had their one-minute warning.
     public private(set) var warned: Set<Int> = []
+    /// Everyone else on the call: people someone else brought in.
+    public private(set) var others: [Guest] = []
+    /// Knocks from friends who are already on a call of their own: letting them in means joining it.
+    public private(set) var knocksFromCalls: Set<Int> = []
 
     public init(friends: [Friend?] = Friend.samples, myCode: String = "TLK-7Q4F", simulated: Bool = true, plan: Plan = .pro) {
         self.friends = friends
@@ -129,7 +150,18 @@ public struct Switchboard: Equatable, Sendable {
     }
 
     public var freeCord: CordID? {
-        CordID.allCases.first { patches[$0] == nil }
+        CordID.allCases.first { patches[$0] == nil && !isCordLocked($0) }
+    }
+
+    /// Cords past what your plan includes (C and D on Free).
+    public func isCordLocked(_ cord: CordID) -> Bool {
+        cord.rawValue >= plan.cords
+    }
+
+    /// Everyone on the call or on the way in, you included: open lines, knocks you've sent, and
+    /// people someone else brought in.
+    public var callSize: Int {
+        1 + openJacks.count + knockingOut.count + others.count
     }
 
     /// The first jack you can use with nobody on it.
@@ -208,6 +240,7 @@ public struct Switchboard: Equatable, Sendable {
     public mutating func patch(_ cord: CordID, into jack: Int, now: TimeInterval) -> [BoardEvent] {
         guard friends.indices.contains(jack) else { return [] }
         if isLocked(jack) { return proOnly(jack: jack, now: now) }
+        if isCordLocked(cord) { return proOnlyCord(now: now) }
         guard let f = friends[jack] else {
             say("FREE JACK", "CLICK IT TO ADD A FRIEND", now: now)
             return [.denied]
@@ -216,9 +249,11 @@ public struct Switchboard: Equatable, Sendable {
             say("BUSY", "CORD \(other.label) IS IN \(f.name)", now: now)
             return [.denied]
         }
-        if !simulated, let busy = busyElsewhere(than: jack, moving: cord) {
-            say("ONE LINE AT A TIME", "HANG UP ON \(busy) FIRST", now: now)
-            return [.denied]
+        // A new person on the call (not a cord moving between people already on it) needs room.
+        let leaving = patches[cord].map { $0.jack != jack } ?? false
+        let joining = incoming[jack] == nil
+        if joining, callSize - (leaving ? 1 : 0) + 1 > plan.groupSize {
+            return callFull(now: now)
         }
         let was = wantsMic
         if let old = patches.removeValue(forKey: cord) { clearFriend(old.jack) }
@@ -232,7 +267,8 @@ public struct Switchboard: Equatable, Sendable {
         } else if knocks.removeValue(forKey: jack) != nil || heldKnocks.remove(jack) != nil {
             // They were knocking: plugging in lets them in.
             status = .open
-            startClock(jack)
+            knocksFromCalls.remove(jack)
+            startClock(jack, now: now)
             say(f.name, "LET IN · LINE OPEN", now: now)
             events.append(.lineOpened)
         } else if !f.online {
@@ -303,14 +339,16 @@ public struct Switchboard: Equatable, Sendable {
         let was = wantsMic
         patches[c]?.status = .open
         patches[c]?.since = now
-        startClock(jack)
+        startClock(jack, now: now)
         if let f = friend(jack) { say(f.name, "LET YOU IN · LINE \(c.label) OPEN", now: now) }
         return [.lineOpened] + micTransition(was)
     }
 
     /// A friend on your board knocks. On do not disturb it waits until you switch it off.
-    public mutating func friendKnocks(_ jack: Int, now: TimeInterval) -> [BoardEvent] {
+    /// `fromCall` means they're knocking from a call of their own, to bring you into it.
+    public mutating func friendKnocks(_ jack: Int, now: TimeInterval, fromCall: Bool = false) -> [BoardEvent] {
         guard let f = friend(jack), f.online, incoming[jack] == nil, knocks[jack] == nil else { return [] }
+        if fromCall { knocksFromCalls.insert(jack) } else { knocksFromCalls.remove(jack) }
         if isLocked(jack) {
             // A jack past your plan: like a knock from off the board, it doesn't ring.
             say(f.name, "TRIED TO KNOCK · PRO JACK", now: now, for: 3)
@@ -335,20 +373,24 @@ public struct Switchboard: Equatable, Sendable {
     public mutating func letIn(_ jack: Int, now: TimeInterval) -> [BoardEvent] {
         let was = wantsMic
         guard knocks[jack] != nil || heldKnocks.contains(jack), let f = friend(jack) else { return [] }
-        if !simulated {
-            // One line at a time: an open line has to end first; your own knock gives way.
-            if let busy = openJacks.first(where: { $0 != jack }).flatMap({ friend($0)?.name }) {
-                say("ONE LINE AT A TIME", "HANG UP ON \(busy) FIRST", now: now)
+        if knocksFromCalls.contains(jack) {
+            // They're on a call of their own: you can join it, but not bring it into yours.
+            if isLive {
+                say(f.name, "ON ANOTHER CALL · HANG UP TO JOIN", now: now, for: 2.6)
                 return [.denied]
             }
-            for c in CordID.allCases where patches[c]?.status == .knocking && patches[c]?.jack != jack {
+            // Your own knocks give way: you're joining their call instead.
+            for c in CordID.allCases where patches[c]?.status == .knocking {
                 patches[c] = nil
             }
+        } else if callSize + 1 > plan.groupSize {
+            return callFull(now: now)
         }
         knocks[jack] = nil
         heldKnocks.remove(jack)
+        knocksFromCalls.remove(jack)
         incoming[jack] = now
-        startClock(jack)
+        startClock(jack, now: now)
         focus = jack
         say(f.name, "LET IN · LINE OPEN", now: now)
         return [.lineOpened] + micTransition(was)
@@ -358,6 +400,7 @@ public struct Switchboard: Equatable, Sendable {
     public mutating func decline(_ jack: Int, now: TimeInterval) -> [BoardEvent] {
         let was = wantsMic
         guard knocks.removeValue(forKey: jack) != nil || heldKnocks.remove(jack) != nil else { return [] }
+        knocksFromCalls.remove(jack)
         if let f = friend(jack) { say(f.name, "DECLINED · THEY WON'T KNOW", now: now) }
         return [.click] + micTransition(was)
     }
@@ -394,6 +437,11 @@ public struct Switchboard: Equatable, Sendable {
     /// Who's actually talking on a line, as heard over the network.
     public mutating func setFriendTalking(_ jack: Int, _ on: Bool) {
         if on, isLineOpen(jack) { friendTalking.insert(jack) } else { friendTalking.remove(jack) }
+    }
+
+    /// Everyone else on the call, as the network has it. Empty once you're off the call.
+    public mutating func setOthers(_ guests: [Guest]) {
+        others = isLive ? guests : []
     }
 
     /// Someone who isn't on your board (an ejected friend, say) tries to knock. Only the eight on your
@@ -616,7 +664,7 @@ public struct Switchboard: Equatable, Sendable {
         if next == .pro {
             lineLimits.removeAll()
             warned.removeAll()
-            say("TALKIE PRO", "\(Plan.pro.jacks) JACKS · EFFECTS · NO TIME LIMIT", now: now, for: 3)
+            say("TALKIE PRO", "\(Plan.pro.jacks) JACKS · CALLS OF \(Plan.pro.groupSize) · NO TIME LIMIT", now: now, for: 3)
         } else {
             effect = .off
             for jack in friends.indices where isLocked(jack) {
@@ -630,6 +678,11 @@ public struct Switchboard: Equatable, Sendable {
                 clearFriend(jack)
             }
             if let jack = adding?.jack, isLocked(jack) { adding?.jack = nil }
+            for c in CordID.allCases where isCordLocked(c) {
+                guard let p = patches.removeValue(forKey: c) else { continue }
+                if p.status == .open { events.append(.lineClosed) }
+                clearFriend(p.jack)
+            }
             say("TALKIE FREE", "\(Plan.free.jacks) JACKS · \(Int(Plan.freeCallLength / 60))-MINUTE CALLS", now: now, for: 3)
         }
         return events + micTransition(was)
@@ -747,9 +800,11 @@ public struct Switchboard: Equatable, Sendable {
             a: patches[.a] != nil,
             b: patches[.b] != nil,
             tx: talking && !openJacks.isEmpty,
-            rx: openJacks.contains { isHeard($0) },
+            rx: openJacks.contains { isHeard($0) } || others.contains(where: \.talking),
             dnd: doNotDisturb,
-            effect: effect == .off ? nil : effect.title
+            effect: effect == .off ? nil : effect.title,
+            c: patches[.c] != nil,
+            d: patches[.d] != nil
         )
     }
 
@@ -773,10 +828,10 @@ public struct Switchboard: Equatable, Sendable {
             return Readout(big: "EMPTY BOARD", sub: "PRESS ADD · YOUR CODE IS \(myCode)")
         }
         let corded = CordID.allCases.compactMap { c in patches[c].map { (cord: c, patch: $0) } }
-        let names = corded.map { name($0.patch.jack) } + incoming.keys.sorted().map(name)
+        let names = corded.map { name($0.patch.jack) } + incoming.keys.sorted().map(name) + others.map(\.name)
         let big = names.isEmpty ? "READY TO PATCH" : names.joined(separator: " + ")
         let open = openJacks
-        let rx = open.filter { isHeard($0) }.map(name)
+        let rx = open.filter { isHeard($0) }.map(name) + others.filter(\.talking).map(\.name)
         let held = corded.filter { $0.patch.status == .waitingDND }.map { name($0.patch.jack) }
 
         let sub: String
@@ -790,16 +845,15 @@ public struct Switchboard: Equatable, Sendable {
             sub = "NO OPEN LINE · MONITOR ONLY"
         } else if corded.contains(where: { $0.patch.status == .knocking }) {
             sub = "KNOCKING…"
-        } else if open.count == 1 {
+        } else if open.count == 1 && others.isEmpty {
             if let line = corded.first(where: { $0.patch.status == .open }) {
                 sub = "LINE \(line.cord.label) · OPEN · \(Self.clock(now - line.patch.since))"
                     + (held.isEmpty ? "" : " · " + held.joined(separator: " + ") + " DND")
             } else {
                 sub = "LET IN · OPEN · \(Self.clock(now - (incoming[open[0]] ?? now)))"
             }
-        } else if open.count > 1 {
-            let bothCords = corded.filter { $0.patch.status == .open }.count == 2
-            sub = bothCords ? "TWO CORDS · THREE PEOPLE" : "\(open.count + 1) PEOPLE ON THE LINE"
+        } else if !open.isEmpty {
+            sub = "\(open.count + others.count + 1) PEOPLE ON THE LINE"
         } else if !held.isEmpty {
             sub = held.joined(separator: " + ") + " · DO NOT DISTURB · KNOCK WAITS"
         } else if let first = corded.first {
@@ -826,14 +880,6 @@ public struct Switchboard: Equatable, Sendable {
 
     // MARK: Helpers
 
-    /// On a real board, the name of whoever you're already on a line with or knocking on, other than
-    /// `jack`. The cord being moved doesn't count: its old line ends when it comes out.
-    private func busyElsewhere(than jack: Int, moving cord: CordID) -> String? {
-        let leaving = patches[cord]?.jack
-        let busy = openJacks + knockingOut
-        return busy.first { $0 != jack && $0 != leaving }.flatMap { friend($0)?.name }
-    }
-
     private mutating func clearFriend(_ jack: Int) {
         friendTalking.remove(jack)
         replies[jack] = nil
@@ -841,12 +887,21 @@ public struct Switchboard: Equatable, Sendable {
         buzzing[jack] = nil
         lineLimits[jack] = nil
         warned.remove(jack)
+        // Off the call altogether: nobody else to hear.
+        if openJacks.allSatisfy({ $0 == jack }) && incoming.keys.allSatisfy({ $0 == jack }) { others = [] }
     }
 
-    /// A line just opened on `jack`: a free plan starts the clock. The operator may lift it once it
-    /// knows the other end has Pro.
-    private mutating func startClock(_ jack: Int) {
-        lineLimits[jack] = plan.callLimit
+    /// A line just opened on `jack`. Joining a call that's already timed ends with it; otherwise a
+    /// free plan starts the clock. The operator may change it once it knows everyone's plan.
+    private mutating func startClock(_ jack: Int, now: TimeInterval) {
+        let deadlines = openJacks.filter { $0 != jack }.compactMap { other in
+            lineLimits[other].flatMap { limit in openedAt(other).map { $0 + limit } }
+        }
+        if let end = deadlines.min() {
+            lineLimits[jack] = max(0, end - now)
+        } else {
+            lineLimits[jack] = plan.callLimit
+        }
         warned.remove(jack)
     }
 
@@ -857,6 +912,22 @@ public struct Switchboard: Equatable, Sendable {
 
     private mutating func timesUp(_ limit: TimeInterval, now: TimeInterval) {
         say("TIME'S UP", "FREE CALLS END AT \(Int(limit / 60)) MINUTES · GO PRO", now: now, for: 5)
+    }
+
+    /// No room for another person: Free calls hold three, Pro five.
+    private mutating func callFull(now: TimeInterval) -> [BoardEvent] {
+        if plan == .free {
+            say("CALL IS FULL", "\(plan.groupSize) ON A FREE CALL · GO PRO FOR \(Plan.pro.groupSize)", now: now, for: 2.6)
+            return [.denied, .needsPro]
+        }
+        say("CALL IS FULL", "\(plan.groupSize) IS THE MOST ON A CALL", now: now, for: 2.6)
+        return [.denied]
+    }
+
+    /// Cords C and D on Free.
+    private mutating func proOnlyCord(now: TimeInterval) -> [BoardEvent] {
+        say("PRO CORD", "GO PRO FOR CALLS OF \(Plan.pro.groupSize)", now: now, for: 2.4)
+        return [.denied, .needsPro]
     }
 
     /// A jack past the first three on Free.

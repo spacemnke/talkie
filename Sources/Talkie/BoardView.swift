@@ -289,7 +289,7 @@ private struct LCDPanel: View {
                     .padding(.top, 8)
                 Spacer(minLength: 0)
                 HStack(alignment: .bottom) {
-                    FlagRow(flags: board.flags)
+                    FlagRow(flags: board.flags, cords: board.plan.cords)
                     Spacer(minLength: 0)
                     Meter(model: model)
                 }
@@ -307,11 +307,17 @@ private struct LCDPanel: View {
 
 private struct FlagRow: View {
     let flags: Flags
+    /// Cords C and D get flags on Pro.
+    var cords = 2
 
     var body: some View {
         HStack(spacing: 0) {
             flag("A", flags.a)
             flag("B", flags.b)
+            if cords > 2 {
+                flag("C", flags.c)
+                flag("D", flags.d)
+            }
             flag("TX", flags.tx)
             flag("RX", flags.rx)
             flag("FX", flags.effect != nil)
@@ -581,7 +587,7 @@ private struct Deck: View {
         let dnd = model.board.doNotDisturb
         let adding = model.isAdding
         HStack(alignment: .top, spacing: 0) {
-            CordWell()
+            CordWell(model: model)
                 .frame(width: 175, height: 78)
                 .padding(EdgeInsets(top: 11, leading: 11, bottom: 0, trailing: 0))
             VolumeKnob(model: model)
@@ -602,33 +608,43 @@ private struct Deck: View {
     }
 }
 
-/// The dark well the cords live in. Each dock reports its centre so the plug knows where home is.
+/// The dark well the cords live in: one cord for each person you can bring onto a call (two on
+/// Free, four on Pro). Each dock reports its centre so the plug knows where home is.
 private struct CordWell: View {
+    let model: BoardModel
+
     var body: some View {
         HStack(spacing: 0) {
-            dock(.a).frame(width: 90)
-            dock(.b).frame(width: 82)
+            ForEach(CordID.allCases, id: \.self) { cord in
+                dock(cord, locked: model.board.isCordLocked(cord)).frame(width: 41)
+            }
             Spacer(minLength: 0)
         }
         .padding(.top, 13)
+        .padding(.leading, 4)
         .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
         .insetPanel(Palette.key, radius: 9)
     }
 
-    private func dock(_ cord: CordID) -> some View {
+    private func dock(_ cord: CordID, locked: Bool) -> some View {
         VStack(spacing: 8) {
             Circle()
                 .fill(Palette.lcd)
-                .overlay(Circle().strokeBorder(Palette.mute, lineWidth: 1.5))
-                .frame(width: 36, height: 36)
+                .overlay(Circle().strokeBorder(Palette.mute, style: StrokeStyle(lineWidth: 1.5, dash: locked ? [3, 3] : [])))
+                .frame(width: 34, height: 34)
                 .background(GeometryReader { g in
                     Color.clear.preference(key: DockKey.self, value: [cord: g.frame(in: .named(BoardSpace.name)).center])
                 })
-            Text("CORD \(cord.label)")
-                .font(Fonts.jura(8, "SemiBold"))
-                .tracking(1)
-                .foregroundStyle(Palette.shell)
+            Text(locked ? "PRO" : "CORD \(cord.label)")
+                .font(Fonts.jura(7.5, "SemiBold"))
+                .tracking(0.5)
+                .foregroundStyle(locked ? Palette.orange : Palette.shell)
+                .fixedSize()
         }
+        .contentShape(Rectangle())
+        .onTapGesture { if locked { model.onShowPro?() } }
+        .accessibilityElement(children: .ignore)
+        .accessibilityLabel(locked ? "Cord \(cord.label), comes with Pro" : "Cord \(cord.label)")
     }
 }
 

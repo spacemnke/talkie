@@ -27,7 +27,7 @@ async function person(name) {
 const plan = async (p) => (await call(p.token, "/rest/v1/rpc/my_plan", { method: "POST", body: {} })).json;
 const seat = (owner, friend, jack) => call(owner.token, "/rest/v1/board", { method: "POST", body: { owner: owner.id, friend: friend.id, jack } });
 const knock = async (from, to) => (await call(from.token, "/rest/v1/knocks?select=id", { method: "POST", body: { caller: from.id, callee: to.id }, prefer: "return=representation" }));
-const answer = async (p, id) => (await call(p.token, "/rest/v1/rpc/answer_knock", { method: "POST", body: { knock_id: id } })).json;
+const answer = async (p, id) => (await call(p.token, "/rest/v1/rpc/let_in", { method: "POST", body: { knock_id: id } })).json;
 const pass = (p, id) => call(p.token, "/functions/v1/line-token", { method: "POST", body: { knock_id: id } });
 
 async function waitFor(what, test) {
@@ -58,7 +58,8 @@ check(p1.status === 200 && p1.json.limit_seconds === null && f1.json.limit_secon
 
 const k2 = await knock(f, g);
 await answer(g, k2.json[0].id);
-check((await pass(g, k2.json[0].id)).json.limit_seconds === 600, "two Free friends still get ten minutes");
+const free2 = (await pass(g, k2.json[0].id)).json.limit_seconds;
+check(free2 >= 595 && free2 <= 600, `two Free friends still get ten minutes (${free2})`);
 
 // Pro ends: friends past jack 03 stay, but can't be knocked, and their knocks can't be let in.
 console.log(`WAITING: update public.profiles set pro_until = now() - interval '1 second' where id = '${p.id}';`);

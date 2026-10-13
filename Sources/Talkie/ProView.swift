@@ -22,7 +22,7 @@ struct ProView: View {
                     Caption(text: plan == .pro ? "YOU'RE ON PRO" : "YOU'RE ON FREE")
                 }
                 .padding(.top, 24)
-                Text("Free keeps three friends a patch away. Pro opens all eight jacks, lifts the time limit and gives you a voice of your own.")
+                Text("Free keeps three friends a patch away. Pro opens all eight jacks and four cords for calls of five, lifts the time limit and gives you a voice of your own.")
                     .font(Fonts.jura(11, "Regular"))
                     .foregroundStyle(Palette.mute)
                     .lineSpacing(3)

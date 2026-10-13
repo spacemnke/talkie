@@ -73,7 +73,7 @@ for (let i = 0; i < 40 && !got; i++) {
 }
 check(!!got, "B hears A's knock live" + (got ? ` (from ${got.payload.data.record.caller_name})` : ""));
 
-await call(b.token, "/rest/v1/rpc/answer_knock", { method: "POST", body: { knock_id: knockId } });
+await call(b.token, "/rest/v1/rpc/let_in", { method: "POST", body: { knock_id: knockId } });
 let answered = null;
 for (let i = 0; i < 40 && !answered; i++) {
   await sleep(250);

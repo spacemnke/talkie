@@ -158,7 +158,7 @@ final class PlanTests: XCTestCase {
         XCTAssertEqual(b.setPlan(.pro, now: 10), [.click])
         XCTAssertFalse(b.isLocked(7))
         XCTAssertTrue(b.lineLimits.isEmpty)
-        XCTAssertEqual(b.readout(now: 10), Readout(big: "TALKIE PRO", sub: "8 JACKS · EFFECTS · NO TIME LIMIT"))
+        XCTAssertEqual(b.readout(now: 10), Readout(big: "TALKIE PRO", sub: "8 JACKS · CALLS OF 5 · NO TIME LIMIT"))
         XCTAssertEqual(b.setPlan(.pro, now: 11), [], "nothing to say when nothing changed")
     }
 
@@ -204,5 +204,85 @@ extension PlanTests {
         XCTAssertEqual(b.timeLeft(now: 30), 61)
         XCTAssertEqual(b.tick(now: 31), [.timeWarning])
         XCTAssertEqual(b.tick(now: 91), [.lineClosed, .micStow])
+    }
+}
+
+/// Group calls: three people on Free, five on Pro, one cord per person you bring in.
+final class GroupCallTests: XCTestCase {
+    private func online(_ plan: Plan) -> Switchboard {
+        var b = Switchboard(friends: Array(repeating: nil, count: 8), myCode: "TLK-AB12", simulated: false, plan: plan)
+        b.loadBoard((1...6).map { Friend(id: $0, name: "F\($0)") })
+        return b
+    }
+
+    private func bringIn(_ b: inout Switchboard, _ cord: CordID, _ jack: Int, at t: TimeInterval) {
+        _ = b.patch(cord, into: jack, now: t)
+        _ = b.friendAnswers(jack, now: t)
+    }
+
+    func testFreeHasTwoCordsAndProFour() {
+        XCTAssertEqual(Plan.free.groupSize, 3)
+        XCTAssertEqual(Plan.pro.groupSize, 5)
+        let free = online(.free)
+        XCTAssertEqual(CordID.allCases.filter(free.isCordLocked), [.c, .d])
+        XCTAssertEqual(CordID.allCases.filter(online(.pro).isCordLocked), [])
+    }
+
+    func testAFreeCallHoldsThree() {
+        var b = online(.free)
+        bringIn(&b, .a, 0, at: 0)
+        bringIn(&b, .b, 1, at: 1)
+        XCTAssertEqual(b.callSize, 3)
+        XCTAssertEqual(b.patch(.c, into: 2, now: 2), [.denied, .needsPro], "cord C is Pro")
+        XCTAssertEqual(b.readout(now: 2), Readout(big: "PRO CORD", sub: "GO PRO FOR CALLS OF 5"))
+        _ = b.friendKnocks(2, now: 3)
+        XCTAssertEqual(b.letIn(2, now: 4), [.denied, .needsPro])
+        XCTAssertEqual(b.readout(now: 4), Readout(big: "CALL IS FULL", sub: "3 ON A FREE CALL · GO PRO FOR 5"))
+    }
+
+    func testSomeoneElseOnTheCallCountsToo() {
+        var b = online(.free)
+        _ = b.friendKnocks(0, now: 0)
+        _ = b.letIn(0, now: 1)
+        b.setOthers([Guest(id: "z", name: "ZOE")])
+        XCTAssertEqual(b.patch(.a, into: 1, now: 2), [.denied, .needsPro], "you, Sam's friend and Zoe make three")
+    }
+
+    func testAProCallHoldsFive() {
+        var b = online(.pro)
+        bringIn(&b, .a, 0, at: 0)
+        bringIn(&b, .b, 1, at: 1)
+        bringIn(&b, .c, 2, at: 2)
+        bringIn(&b, .d, 3, at: 3)
+        XCTAssertEqual(b.callSize, 5)
+        _ = b.tick(now: 8)
+        XCTAssertEqual(b.readout(now: 8), Readout(big: "F1 + F2 + F3 + F4", sub: "5 PEOPLE ON THE LINE"))
+        _ = b.friendKnocks(4, now: 9)
+        XCTAssertEqual(b.letIn(4, now: 10), [.denied])
+        XCTAssertEqual(b.readout(now: 10), Readout(big: "CALL IS FULL", sub: "5 IS THE MOST ON A CALL"))
+    }
+
+    func testMovingACordBetweenFriendsIsntAnExtraPerson() {
+        var b = online(.free)
+        bringIn(&b, .a, 0, at: 0)
+        bringIn(&b, .b, 1, at: 1)
+        XCTAssertEqual(b.patch(.b, into: 2, now: 2), [.plugged, .knockOut])
+    }
+
+    func testSomeoneJoiningAFreeCallGetsWhatsLeft() {
+        var b = online(.free)
+        bringIn(&b, .a, 0, at: 0)
+        bringIn(&b, .b, 1, at: 240)
+        XCTAssertEqual(b.lineLimits[1], 360, "the call still ends at ten minutes")
+        XCTAssertEqual(b.tick(now: 600), [.lineClosed, .lineClosed, .micStow])
+    }
+
+    func testGoingBackToFreeUnplugsCordsCAndD() {
+        var b = online(.pro)
+        bringIn(&b, .a, 0, at: 0)
+        bringIn(&b, .c, 2, at: 1)
+        _ = b.setPlan(.free, now: 2)
+        XCTAssertNil(b.patches[.c])
+        XCTAssertEqual(b.openJacks, [0])
     }
 }

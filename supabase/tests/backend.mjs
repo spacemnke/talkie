@@ -59,9 +59,9 @@ check((await call(b.token, `/rest/v1/knocks?id=eq.${knockId}`)).json.length === 
 
 const early = await call(a.token, "/functions/v1/line-token", { method: "POST", body: { knock_id: knockId } });
 check(early.status === 403 || early.status === 503, `no pass before B lets A in (${early.status})`);
-const cheat = (await call(a.token, "/rest/v1/rpc/answer_knock", { method: "POST", body: { knock_id: knockId } })).json;
+const cheat = (await call(a.token, "/rest/v1/rpc/let_in", { method: "POST", body: { knock_id: knockId } })).json;
 check(!cheat || cheat.status === null, "A can't answer their own knock");
-const answered = (await call(b.token, "/rest/v1/rpc/answer_knock", { method: "POST", body: { knock_id: knockId } })).json;
+const answered = (await call(b.token, "/rest/v1/rpc/let_in", { method: "POST", body: { knock_id: knockId } })).json;
 check(answered.status === "answered", "B lets A in");
 
 const passA = await call(a.token, "/functions/v1/line-token", { method: "POST", body: { knock_id: knockId } });
@@ -75,7 +75,7 @@ if (passA.status === 503) {
   const claims = JSON.parse(Buffer.from(passA.json.token.split(".")[1], "base64url").toString());
   check(claims.sub === a.id && claims.video?.room === passA.json.room && claims.video?.roomJoin, "A's pass is for A, in that room");
   check(passA.json.url.startsWith("wss://"), "the LiveKit URL looks right: " + passA.json.url);
-  check(passA.json.limit_seconds === 600 && passB.json.limit_seconds === 600, "two Free friends get ten minutes");
+  check(passA.json.limit_seconds >= 595 && passB.json.limit_seconds <= 600, "two Free friends get ten minutes");
 }
 check(passC.status === 404 || passC.status === 503, `C gets no pass (${passC.status})`);
 

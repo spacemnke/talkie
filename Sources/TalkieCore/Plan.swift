@@ -11,6 +11,12 @@ public enum Plan: String, CaseIterable, Sendable {
     /// How many jacks on the board you can use.
     public var jacks: Int { self == .free ? 3 : 8 }
 
+    /// How many people a call can have when you're the one bringing them in, you included.
+    public var groupSize: Int { self == .free ? 3 : 5 }
+
+    /// Patch cords on the deck: one for each person you can bring in.
+    public var cords: Int { groupSize - 1 }
+
     /// How long a call can last on your side, before the other end's plan is known. Nil is no limit.
     public var callLimit: TimeInterval? { self == .free ? Plan.freeCallLength : nil }
 
@@ -37,6 +43,7 @@ public struct PlanFeature: Equatable, Sendable {
 
     public static let all: [PlanFeature] = [
         PlanFeature(name: "Friends on your board", free: "3 jacks", pro: "8 jacks"),
+        PlanFeature(name: "Group calls", free: "3 people", pro: "5 people"),
         PlanFeature(name: "Call length", free: "10 minutes · no limit if your friend has Pro", pro: "No limit"),
         PlanFeature(name: "Voice effects", free: "—", pro: "Canyon, Tin Can, Helium, Machine"),
         PlanFeature(name: "Knock sounds", free: "The standard knock", pro: "Pick a knock for each friend"),

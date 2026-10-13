@@ -140,9 +140,12 @@ final class SwitchboardTests: XCTestCase {
         XCTAssertEqual(first.cord, .a)
         let second = b.tapJack(1, now: 0)
         XCTAssertEqual(second.cord, .b)
-        let third = b.tapJack(5, now: 0)
-        XCTAssertNil(third.cord)
-        XCTAssertEqual(third.events, [.denied])
+        XCTAssertEqual(b.tapJack(5, now: 0).cord, .c, "Pro has four cords")
+        XCTAssertEqual(b.tapJack(6, now: 0).cord, .d)
+        let fifth = b.tapJack(3, now: 0)
+        XCTAssertNil(fifth.cord)
+        XCTAssertEqual(fifth.events, [.denied])
+        XCTAssertEqual(b.readout(now: 0), Readout(big: "NO CORD", sub: "PULL A PLUG FIRST"))
         // Tapping a patched jack pulls its cord.
         XCTAssertEqual(b.tapJack(0, now: 1).events, [.unplugged])
         XCTAssertNil(b.cord(at: 0))
@@ -152,7 +155,7 @@ final class SwitchboardTests: XCTestCase {
         var b = Switchboard()
         openLine(&b, cord: .a, jack: 0)
         openLine(&b, cord: .b, jack: 1, at: 1)
-        XCTAssertEqual(b.readout(now: 3), Readout(big: "MAYA + OTTO", sub: "TWO CORDS · THREE PEOPLE"))
+        XCTAssertEqual(b.readout(now: 3), Readout(big: "MAYA + OTTO", sub: "3 PEOPLE ON THE LINE"))
         XCTAssertEqual(b.liveNames, ["MAYA", "OTTO"])
     }
 
