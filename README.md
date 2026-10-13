@@ -71,6 +71,16 @@ release: https://github.com/spacemnke/talkie/releases/tag/latest
 It isn't notarized yet. The first time you open it, macOS will refuse; open **System Settings →
 Privacy & Security** and click **Open Anyway** (or run `xattr -dr com.apple.quarantine /Applications/Talkie.app`).
 
+## Updates
+
+Talkie updates itself with [Sparkle](https://sparkle-project.org). Every build on GitHub is
+numbered (0.1.<run>) and published to the **Talkie (latest build)** release with `Talkie.zip` and
+`appcast.xml`, the feed Talkie checks at launch and every six hours; **Check for Updates…** in the
+menu bar menu checks now. Updates are signed with an Ed25519 key: the public half is `SUPublicEDKey`
+in `Support/Info.plist`, the private half is the `SPARKLE_PRIVATE_KEY` Actions secret, and
+`scripts/appcast.mjs` signs each build with it. Without the secret, builds still publish but carry
+no feed, so nobody is offered them.
+
 ## Try it
 
 - The first launch walks you through three welcome steps, including microphone access.

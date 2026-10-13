@@ -32,5 +32,13 @@
 	<true/>
 	<key>NSMicrophoneUsageDescription</key>
 	<string>Talkie uses the microphone only while you hold the mic or the talk shortcut.</string>
+	<key>SUFeedURL</key>
+	<string>https://github.com/spacemnke/talkie/releases/download/latest/appcast.xml</string>
+	<key>SUPublicEDKey</key>
+	<string>ovhs+X/vtI7ETNTS5BnGm4qwSHY6QjKAvvx9XthH03o=</string>
+	<key>SUEnableAutomaticChecks</key>
+	<true/>
+	<key>SUScheduledCheckInterval</key>
+	<integer>21600</integer>
 </dict>
 </plist>

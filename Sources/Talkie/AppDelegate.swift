@@ -5,6 +5,7 @@ import TalkieCore
 @MainActor
 final class AppDelegate: NSObject, NSApplicationDelegate {
     let model = BoardModel()
+    private let updates = Updates()
     private var statusItem: NSStatusItem?
     private var boardWindow: DeviceNSWindow?
     private var effectsWindow: DeviceNSWindow?
@@ -48,6 +49,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             return
         }
         model.start()
+        updates.start()
         let firstRun = !UserDefaults.standard.bool(forKey: Self.finishedWelcome)
         if firstRun { showWelcome() } else { showBoard() }
 
@@ -381,6 +383,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
 
         menu.addItem(.separator())
         add(menu, "Settings…", #selector(showSettings))
+        add(menu, "Check for Updates…", #selector(checkForUpdates))
         add(menu, "Welcome to Talkie…", #selector(showWelcome))
         add(menu, "Quit Talkie", #selector(quit))
 
@@ -465,4 +468,5 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         model.simulateFriendDoNotDisturb(sender.tag, !(model.board.friend(sender.tag)?.doNotDisturb ?? false))
     }
     @objc private func quit() { NSApp.terminate(nil) }
+    @objc private func checkForUpdates() { updates.checkForUpdates() }
 }

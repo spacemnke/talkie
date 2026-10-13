@@ -37,7 +37,23 @@ jobs:
         run: swift test
 
       - name: Package Talkie.app and Talkie.dmg
+        env:
+          # Every build is numbered, so Talkie's updater can tell which is newer.
+          TALKIE_BUILD: ${{ github.run_number }}
         run: scripts/bundle.sh release
+
+      # The update feed Talkie checks: this build, signed with the key in the repository's secrets.
+      - name: Update feed
+        if: github.event_name != 'pull_request'
+        env:
+          SPARKLE_PRIVATE_KEY: ${{ secrets.SPARKLE_PRIVATE_KEY }}
+        run: |
+          if [ -z "$SPARKLE_PRIVATE_KEY" ]; then
+            echo "::warning::No SPARKLE_PRIVATE_KEY secret, so no update feed: Talkie can't update itself to this build."
+            exit 0
+          fi
+          node scripts/appcast.mjs build/Talkie.zip "$GITHUB_RUN_NUMBER" "0.1.$GITHUB_RUN_NUMBER" \
+            "https://github.com/${GITHUB_REPOSITORY}/releases/download/latest/Talkie.zip" build/appcast.xml
 
       - uses: actions/upload-artifact@v4
         with:
@@ -54,7 +70,10 @@ jobs:
           GH_TOKEN: ${{ github.token }}
         run: |
           gh release delete latest --yes --cleanup-tag || true
-          gh release create latest build/Talkie.dmg \
+          # The disk image for people, and the zip and feed for Talkie's updater.
+          assets=(build/Talkie.dmg build/Talkie.zip)
+          if [ -f build/appcast.xml ]; then assets+=(build/appcast.xml); fi
+          gh release create latest "${assets[@]}" \
             --prerelease \
             --target "$GITHUB_SHA" \
             --title "Talkie (latest build)" \
