@@ -10,6 +10,22 @@ final class Line {
         let url: String
         let token: String
         let room: String
+        /// How long this line can last, from both your plans: `.some(nil)` is no limit (one of you
+        /// has Pro), `.some(600)` is a free call. Nil when the server didn't say.
+        let limit: TimeInterval??
+
+        enum CodingKeys: String, CodingKey {
+            case url, token, room
+            case limit = "limit_seconds"
+        }
+
+        init(from decoder: Decoder) throws {
+            let c = try decoder.container(keyedBy: CodingKeys.self)
+            url = try c.decode(String.self, forKey: .url)
+            token = try c.decode(String.self, forKey: .token)
+            room = try c.decode(String.self, forKey: .room)
+            limit = try c.contains(.limit) ? .some(c.decodeIfPresent(Double.self, forKey: .limit)) : nil
+        }
     }
 
     enum Event {
@@ -41,6 +57,8 @@ final class Line {
         let delegate = LineDelegate { [weak self] event in
             Task { @MainActor in self?.handle(event, generation: gen) }
         }
+        // Your voice effect goes on the microphone before it's sent.
+        VoiceEffects.shared.install()
         let room = Room(delegate: delegate)
         self.room = room
         self.delegate = delegate

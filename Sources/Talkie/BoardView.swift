@@ -78,7 +78,7 @@ private struct IdentityPanel: View {
                 Text("TALKIE")
                     .font(Fonts.jura(34, "Light"))
                     .tracking(1)
-                Text("PATCH INTERCOM")
+                Text("PATCH INTERCOM · \(model.board.plan.title)")
                     .font(Fonts.jura(10, "SemiBold"))
                     .tracking(1.6)
                     .foregroundStyle(Palette.mute)
@@ -367,6 +367,8 @@ private struct SocketPanel: View {
     var body: some View {
         let friend = model.board.friend(index)
         let arriving = model.arriving == index
+        // Past the first three on Free: the friend there stays, but the jack waits for Pro.
+        let locked = model.board.isLocked(index)
         // While you add a friend, the jack they'll go on lights up.
         let target = model.isAdding && model.board.addingJack == index
         let shape = RoundedRectangle(cornerRadius: Radius.inset, style: .continuous)
@@ -385,42 +387,67 @@ private struct SocketPanel: View {
                 .padding(.horizontal, 10)
                 .padding(.top, 8)
 
-                Text(friend?.name ?? "+ ADD")
+                Text(friend?.name ?? (locked ? "PRO" : "+ ADD"))
                     .font(Fonts.jura(13, "Medium"))
                     .tracking(1)
                     .lineLimit(1)
                     .minimumScaleFactor(0.7)
-                    .foregroundStyle(target ? Palette.orange : nameColor(friend))
+                    .foregroundStyle(target ? Palette.orange : locked ? Palette.away : nameColor(friend))
                     .frame(height: 16)
                     .padding(.horizontal, 8)
                     .padding(.top, 7)
 
-                SocketHole(near: model.nearJack == index || target, free: friend == nil)
+                SocketHole(near: (model.nearJack == index && !locked) || target, free: friend == nil && !locked, locked: locked)
                     .background(GeometryReader { g in
                         Color.clear.preference(key: HoleKey.self, value: [index: g.frame(in: .named(BoardSpace.name)).center])
                     })
                     .padding(.top, 9)
 
-                PresenceTag(friend: friend)
-                    .frame(height: 10)
-                    .padding(.top, 1)
+                Group {
+                    if locked {
+                        Text("PRO JACK")
+                            .font(Fonts.jura(8, "SemiBold"))
+                            .tracking(0.8)
+                            .foregroundStyle(Palette.mute)
+                    } else {
+                        PresenceTag(friend: friend)
+                    }
+                }
+                .frame(height: 10)
+                .padding(.top, 1)
                 Spacer(minLength: 0)
             }
             .frame(width: 112, height: 119)
-            .background(shape.fill(arriving ? Palette.orangeGlow : Palette.paper))
+            .background(shape.fill(arriving ? Palette.orangeGlow : locked ? Palette.plate : Palette.paper))
             .overlay(shape.strokeBorder(Palette.ink, lineWidth: 1))
             .contentShape(shape)
         }
         .buttonStyle(.plain)
         .contextMenu {
             if let friend {
+                if model.board.plan.hasKnockSounds {
+                    Menu("Knock Sound") {
+                        let current = model.knockSounds[friend.id] ?? .standard
+                        ForEach(KnockSound.allCases, id: \.self) { knock in
+                            Toggle(knock.title, isOn: Binding(get: { current == knock }, set: { _ in
+                                model.setKnockSound(knock, for: index)
+                            }))
+                        }
+                    }
+                } else {
+                    Button("Knock Sounds (Pro)…") { model.onShowPro?() }
+                }
+                Divider()
                 Button("Eject \(friend.name.capitalized) from the Board") { model.eject(index) }
+            } else if locked {
+                Button("Unlock with Pro…") { model.onShowPro?() }
             } else {
                 Button("Add a Friend Here") { model.startAdding(at: index) }
             }
         }
-        .accessibilityLabel(accessibilityText(friend))
-        .accessibilityHint(friend == nil ? "Adds a friend here: type their code."
+        .accessibilityLabel(accessibilityText(friend) + (locked ? ", Pro jack" : ""))
+        .accessibilityHint(locked ? "Comes with Pro."
+            : friend == nil ? "Adds a friend here: type their code."
             : model.board.knocks[index] != nil ? "Lets them in." : "Knocks with the next free cord, or pulls it out.")
         .accessibilityActions {
             if friend != nil {
@@ -449,12 +476,13 @@ private struct SocketPanel: View {
 private struct SocketHole: View {
     let near: Bool
     let free: Bool
+    var locked = false
 
     var body: some View {
         ZStack {
             Circle().fill(Palette.shell).overlay(Circle().strokeBorder(Palette.ink, lineWidth: 1.5))
             Circle()
-                .fill(near ? Palette.orange : Palette.white)
+                .fill(near ? Palette.orange : locked ? Palette.soft : Palette.white)
                 .overlay(Circle().strokeBorder(Palette.ink, lineWidth: 1.5))
                 .frame(width: 36, height: 36)
             Circle().fill(Palette.key).frame(width: 18, height: 18)

@@ -54,6 +54,10 @@ final class BoardModel {
     @ObservationIgnored var onFrame: (() -> Void)?
     /// The mic's settings key was pressed, at this point in the overlay.
     @ObservationIgnored var onMicMenu: ((CGPoint) -> Void)?
+    /// Show what Pro is: you reached for something that comes with it, or asked.
+    @ObservationIgnored var onShowPro: (() -> Void)?
+    /// Your pick of knock for each friend, by friend id (Pro).
+    private(set) var knockSounds: [Int: KnockSound] = [:]
     /// Simulated friends (by id) who don't answer your knocks.
     @ObservationIgnored private(set) var unanswering: Set<Int> = []
     @ObservationIgnored private var lastKnockSound: TimeInterval = 0
@@ -67,6 +71,11 @@ final class BoardModel {
         static let micHome = "micHome"
         static let muted = "mutedFriends"
         static let practice = "practiceBoard"
+        /// Your plan as the operator last said it, so the board starts out right before it answers.
+        static let plan = "plan"
+        /// The practice board's plan, to try Free and Pro without paying.
+        static let practicePlan = "practicePlan"
+        static let knockSounds = "knockSounds"
     }
     @ObservationIgnored private var timer: Timer?
     @ObservationIgnored private var plugDrags: [CordID: PlugDrag] = [:]
@@ -93,12 +102,18 @@ final class BoardModel {
 
     init() {
         practice = UserDefaults.standard.bool(forKey: Saved.practice)
-        board = practice ? Self.practiceBoard(now: ProcessInfo.processInfo.systemUptime) : Self.waitingBoard
+        board = practice ? Self.practiceBoard(now: ProcessInfo.processInfo.systemUptime, plan: Self.savedPlan(Saved.practicePlan, or: .pro))
+            : Self.waitingBoard(plan: Self.savedPlan(Saved.plan, or: .free))
 
         // What you set last time: sound, volume, who you muted, where you left the mic.
         if defaults.object(forKey: Saved.soundOn) != nil { soundOn = defaults.bool(forKey: Saved.soundOn) }
         if defaults.object(forKey: Saved.volume) != nil { volume = min(max(defaults.double(forKey: Saved.volume), 0), 1) }
         if let ids = defaults.array(forKey: Saved.muted) as? [Int] { board.setMutedFriends(Set(ids)) }
+        if let saved = defaults.dictionary(forKey: Saved.knockSounds) as? [String: String] {
+            for (id, raw) in saved {
+                if let id = Int(id), let k = KnockSound(rawValue: raw) { knockSounds[id] = k }
+            }
+        }
         if let home = defaults.array(forKey: Saved.micHome) as? [Double], home.count == 2 {
             mic.home = CGPoint(x: home[0], y: home[1])
         }
@@ -116,9 +131,13 @@ final class BoardModel {
 
     // MARK: Practice board or the real one
 
+    private static func savedPlan(_ key: String, or fallback: Plan) -> Plan {
+        UserDefaults.standard.string(forKey: key).flatMap(Plan.init(rawValue:)) ?? fallback
+    }
+
     /// Like the prototype: cord A is in Maya's jack and she has let you in.
-    private static func practiceBoard(now t: TimeInterval) -> Switchboard {
-        var b = Switchboard()
+    private static func practiceBoard(now t: TimeInterval, plan: Plan) -> Switchboard {
+        var b = Switchboard(plan: plan)
         _ = b.patch(.a, into: 0, now: t - 3)
         _ = b.friendAnswers(0, now: t - 3)
         _ = b.tick(now: t)
@@ -126,8 +145,8 @@ final class BoardModel {
     }
 
     /// Your real board before the operator has answered: empty, with no code yet.
-    private static var waitingBoard: Switchboard {
-        Switchboard(friends: Array(repeating: nil, count: 8), myCode: "TLK-····", simulated: false)
+    private static func waitingBoard(plan: Plan) -> Switchboard {
+        Switchboard(friends: Array(repeating: nil, count: 8), myCode: "TLK-····", simulated: false, plan: plan)
     }
 
     func setPractice(_ on: Bool) {
@@ -138,10 +157,10 @@ final class BoardModel {
         if on {
             online?.disconnect()
             online = nil
-            replaceBoard(Self.practiceBoard(now: now))
+            replaceBoard(Self.practiceBoard(now: now, plan: Self.savedPlan(Saved.practicePlan, or: .pro)))
             dropMic()
         } else {
-            replaceBoard(Self.waitingBoard)
+            replaceBoard(Self.waitingBoard(plan: Self.savedPlan(Saved.plan, or: .free)))
             goOnline()
         }
     }
@@ -153,9 +172,10 @@ final class BoardModel {
         op.connect()
     }
 
-    /// The operator answered: here's your code and your board.
-    func operatorConnected(code: String, friends: [Friend?]) {
-        var b = Switchboard(friends: friends, myCode: code, simulated: false)
+    /// The operator answered: here's your code, your plan and your board.
+    func operatorConnected(code: String, friends: [Friend?], plan: Plan) {
+        defaults.set(plan.rawValue, forKey: Saved.plan)
+        var b = Switchboard(friends: friends, myCode: code, simulated: false, plan: plan)
         b.setMutedFriends(board.muted)
         b.say("ONLINE", "YOUR CODE IS \(code)", now: now, for: 3)
         replaceBoard(b)
@@ -169,6 +189,7 @@ final class BoardModel {
     private func replaceBoard(_ b: Switchboard) {
         var next = b
         next.setMutedFriends(board.muted)
+        next.restoreEffect(board.effect)
         board = next
         resnapCords()
     }
@@ -265,7 +286,7 @@ final class BoardModel {
 
     private func playKnock(_ t: TimeInterval) {
         lastKnockSound = t
-        sound.play(.knock)
+        sound.play(knockSound(for: board.knockers.first))
     }
 
     private func handle(_ events: [BoardEvent]) {
@@ -285,6 +306,8 @@ final class BoardModel {
             case .knockIn: playKnock(now)
             case .knockOut: sound.play(.knockSoft)
             case .addFriend: sound.play(.click); focusRequest += 1
+            case .needsPro: onShowPro?()
+            case .timeWarning: sound.play(.warn)
             }
         }
     }
@@ -568,9 +591,48 @@ final class BoardModel {
         }
     }
 
+    // MARK: Free or Pro
+
+    /// Your plan changed on the server (you went Pro, or Pro ran out).
+    func operatorChangedPlan(_ plan: Plan) {
+        defaults.set(plan.rawValue, forKey: Saved.plan)
+        apply { $0.setPlan(plan, now: now) }
+    }
+
+    /// The practice board's plan: try Free and Pro without paying.
+    func setPracticePlan(_ plan: Plan) {
+        guard practice else { return }
+        defaults.set(plan.rawValue, forKey: Saved.practicePlan)
+        apply { $0.setPlan(plan, now: now) }
+    }
+
+    /// The knock you hear when the friend on `jack` knocks.
+    func knockSound(for jack: Int?) -> KnockSound {
+        KnockSound.forFriend(jack.flatMap { board.friend($0) }.flatMap { knockSounds[$0.id] }, plan: board.plan)
+    }
+
+    /// Pick a friend's knock (Pro). You hear it straight away.
+    func setKnockSound(_ knock: KnockSound, for jack: Int) {
+        guard board.plan.hasKnockSounds else {
+            apply { $0.say("KNOCK SOUNDS", "PRO ONLY · PICK A KNOCK PER FRIEND", now: now, for: 2.6); return [.denied, .needsPro] }
+            return
+        }
+        guard let f = board.friend(jack) else { return }
+        knockSounds[f.id] = knock == .standard ? nil : knock
+        defaults.set(Dictionary(uniqueKeysWithValues: knockSounds.map { (String($0.key), $0.value.rawValue) }), forKey: Saved.knockSounds)
+        sound.play(knock)
+        apply { $0.say(f.name, "KNOCKS WITH \(knock.title.uppercased())", now: now, for: 2); return [] }
+    }
+
+    func previewKnock(_ knock: KnockSound) {
+        sound.play(knock)
+    }
+
     // MARK: Simulated friends (until there's a network)
 
     func simulateKnock(_ jack: Int) { apply { $0.friendKnocks(jack, now: now) } }
+    /// Jump a free call to its last minute (practice board).
+    func simulateLastMinute() { apply { $0.endLinesSoon(in: Plan.warnBefore + 1, now: now); return [] } }
     func simulateOffBoardKnock(_ invite: Invite) {
         lastKnock = (invite.code, now)
         apply { $0.offBoardKnock(from: invite.friend.name, now: now) }

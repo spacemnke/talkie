@@ -1,4 +1,5 @@
 import AVFoundation
+import TalkieCore
 
 /// The board's little sounds, synthesized once at launch. Output only; no microphone access.
 @MainActor
@@ -7,8 +8,10 @@ final class SoundBoard {
         case plug, unplug, open, close, key, click, over, buzz, deny, drop, stow
         /// A friend you added lands on the board.
         case accept
-        /// A friend knocking on you, and the softer one you hear when you knock.
-        case knock, knockSoft
+        /// The soft knock you hear when you knock. (Knocks on you are `KnockSound`s.)
+        case knockSoft
+        /// A free call has a minute left.
+        case warn
     }
 
     private let engine = AVAudioEngine()
@@ -16,6 +19,7 @@ final class SoundBoard {
     private var players: [AVAudioPlayerNode] = []
     private var nextPlayer = 0
     private var buffers: [Sound: AVAudioPCMBuffer] = [:]
+    private var knocks: [KnockSound: AVAudioPCMBuffer] = [:]
     private var started = false
 
     /// 0...1. Zero silences everything.
@@ -32,10 +36,20 @@ final class SoundBoard {
         }
         engine.mainMixerNode.outputVolume = volume
         for s in Sound.allCases { buffers[s] = Self.render(s, format: format) }
+        for k in KnockSound.allCases { knocks[k] = Self.render(k, format: format) }
     }
 
     func play(_ sound: Sound) {
-        guard volume > 0, let buffer = buffers[sound] else { return }
+        play(buffers[sound])
+    }
+
+    /// A friend knocking on you.
+    func play(_ knock: KnockSound) {
+        play(knocks[knock])
+    }
+
+    private func play(_ buffer: AVAudioPCMBuffer?) {
+        guard volume > 0, let buffer else { return }
         if !started {
             do { try engine.start() } catch { return }
             started = true
@@ -85,13 +99,10 @@ final class SoundBoard {
         case .stow:
             s.tone(at: 0, duration: 0.2, peak: 0.05, from: 220, to: 950, wave: .sine)
             s.noise(at: 0.16, duration: 0.05, peak: 0.1, center: 3000, q: 1)
-        case .knock:
-            // Knuckles on a wooden door: two knocks, the second a touch lighter.
-            for (i, peak) in [(0, 1.0), (1, 0.8)] {
-                let t = Double(i) * 0.17
-                s.noise(at: t, duration: 0.05, peak: 0.5 * peak, center: 420, q: 1.6)
-                s.noise(at: t, duration: 0.02, peak: 0.25 * peak, center: 1500, q: 1.2)
-                s.tone(at: t, duration: 0.09, peak: 0.45 * peak, from: 190, to: 120, wave: .sine)
+        case .warn:
+            // Three short pips, like the end of a phone card.
+            for i in 0..<3 {
+                s.beep(at: Double(i) * 0.16, duration: 0.08, peak: 0.07, frequency: 1400)
             }
         case .knockSoft:
             for i in 0..<2 {
@@ -102,6 +113,58 @@ final class SoundBoard {
         case .accept:
             s.tone(at: 0, duration: 0.07, peak: 0.05, from: 1046, to: 1046, wave: .square)
             s.tone(at: 0.08, duration: 0.12, peak: 0.05, from: 1568, to: 1568, wave: .square)
+        }
+        return s.buffer(format: format)
+    }
+
+    private static func render(_ knock: KnockSound, format: AVAudioFormat) -> AVAudioPCMBuffer? {
+        var s = Synth(sampleRate: format.sampleRate)
+        switch knock {
+        case .knuckles:
+            // Knuckles on a wooden door: two knocks, the second a touch lighter.
+            for (i, peak) in [(0, 1.0), (1, 0.8)] {
+                s.knuckle(at: Double(i) * 0.17, peak: peak)
+            }
+        case .shaveAndAHaircut:
+            // Shave and a hair-cut ... two bits.
+            for (t, peak) in [(0.0, 1.0), (0.24, 0.75), (0.36, 0.75), (0.48, 0.9), (0.72, 0.9), (1.2, 1.0), (1.44, 1.0)] {
+                s.knuckle(at: t, peak: peak)
+            }
+        case .woodblock:
+            for i in 0..<3 {
+                let t = Double(i) * 0.12
+                s.noise(at: t, duration: 0.03, peak: 0.3, center: 1100, q: 5)
+                s.tone(at: t, duration: 0.06, peak: 0.35, from: 820, to: 760, wave: .sine)
+            }
+        case .doorbell:
+            // Ding (E) then dong (C), each with a little of its octave for the chime.
+            for (t, f) in [(0.0, 659.3), (0.45, 523.3)] {
+                s.tone(at: t, duration: 1.1, peak: 0.28, from: f, to: f, wave: .sine)
+                s.tone(at: t, duration: 0.6, peak: 0.07, from: f * 2, to: f * 2, wave: .sine)
+                s.tone(at: t, duration: 0.3, peak: 0.03, from: f * 3.01, to: f * 3.01, wave: .sine)
+            }
+        case .bikeBell:
+            // Ring ring: two quick trills on a small bell.
+            for start in [0.0, 0.42] {
+                for i in 0..<3 {
+                    let t = start + Double(i) * 0.055
+                    s.tone(at: t, duration: 0.32, peak: 0.12, from: 2093, to: 2093, wave: .sine)
+                    s.tone(at: t, duration: 0.22, peak: 0.07, from: 2660, to: 2660, wave: .sine)
+                    s.tone(at: t, duration: 0.12, peak: 0.04, from: 4310, to: 4310, wave: .sine)
+                }
+            }
+        case .telegraph:
+            // T-A-L-K in Morse.
+            let dot = 0.06
+            var t = 0.0
+            for letter in ["-", ".-", ".-..", "-.-"] {
+                for mark in letter {
+                    let length = mark == "-" ? dot * 3 : dot
+                    s.beep(at: t, duration: length, peak: 0.12, frequency: 760)
+                    t += length + dot
+                }
+                t += dot * 2
+            }
         }
         return s.buffer(format: format)
     }
@@ -159,6 +222,26 @@ private struct Synth {
             x2 = x1; x1 = x; y2 = y1; y1 = y
             let t = Double(i) / sampleRate
             samples[first + i] += Float(y * 3 * envelope(t, duration: duration, peak: peak))
+        }
+    }
+
+    /// One knuckle on a wooden door.
+    mutating func knuckle(at t: Double, peak: Double) {
+        noise(at: t, duration: 0.05, peak: 0.5 * peak, center: 420, q: 1.6)
+        noise(at: t, duration: 0.02, peak: 0.25 * peak, center: 1500, q: 1.2)
+        tone(at: t, duration: 0.09, peak: 0.45 * peak, from: 190, to: 120, wave: .sine)
+    }
+
+    /// A steady tone with soft 5 ms edges, for pips and Morse.
+    mutating func beep(at start: Double, duration: Double, peak: Double, frequency: Double) {
+        let first = Int(start * sampleRate)
+        let count = Int(duration * sampleRate)
+        ensure(first + count)
+        let edge = 0.005
+        for i in 0..<count {
+            let t = Double(i) / sampleRate
+            let gain = min(1, t / edge, (duration - t) / edge)
+            samples[first + i] += Float(sin(2 * .pi * frequency * t) * peak * max(gain, 0))
         }
     }
 

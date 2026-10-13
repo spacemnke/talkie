@@ -20,9 +20,11 @@ a patch cord into their jack. They hear a knock; when they let you in, the line 
 | Mute | Private. Muting a friend only changes what you hear; nothing is sent to them and their board never shows it. It's kept per friend, so it lasts beyond the call. |
 | The mic | The one place you talk. Lives in the menu bar when there is no call. When a line opens, or someone knocks, it drops onto the desktop on a coiled cord and floats above every app, 198pt wide. Hold it (or a hotkey) to talk, drag or fling it anywhere, it remembers where you left it. Clicking the menu bar icon puts it away; pulling the last plug winds it back up automatically. A settings key on its left side opens the line's menu: mute for each person on the line, do not disturb, voice effect, hang up, the switchboard and settings. This replaced the separate Open Line window (12 Oct), which repeated what the mic does. |
 | Conference | Two cords. Plugging both into different friends makes a three-way line. |
-| Voice FX | Off, Canyon (echo), Tin can (thin, crunchy), Helium (octave up), Machine (ring-modulated). Applied before sending, so the friend hears them. |
+| Voice FX | Off, Canyon (echo), Tin can (thin, crunchy), Helium (octave up), Machine (ring-modulated). Processed on your Mac (`VoiceProcessor`) and put on the microphone before LiveKit sends it, so the friend hears them and only your voice changes. Pro. Anyone can try them on their own voice in the Voice Effects window (hold to record, let go to hear it back). |
 | Buzz | A key on the mic plays a call tone to everyone on an open line. |
-| Eight friends | A board has eight jacks, so eight friends at a time. Right-click a jack to eject someone and make room; their code brings them back. |
+| Eight jacks | A board has eight jacks: three on Free, all eight on Pro. Jacks past your plan show **PRO**. Friends already on one (after Pro ends) stay, but can't be knocked and their knocks don't ring until you go Pro or move them down. Right-click a jack to eject someone and make room; their code brings them back. |
+| Free and Pro | Free: 3 jacks, 10-minute calls (no limit if the other person has Pro), the standard knock, no effects on calls. Pro: 8 jacks, no time limit, voice effects, a knock sound per friend; about $4 a month or $36 a year. Decided 13 Oct. The server owns the plan (`profiles.pro`, `pro_until`), the jack limit (row-level security on boards and knocks) and each line's limit (handed out with the line pass). The app warns a minute before a free call ends, counts down on the LCD, and ends it at ten minutes; nobody can make themselves Pro from the app. Payments open after testing and notarization; until then everyone is on Free and Pro is given by hand. |
+| Knock sounds | Knuckles (the standard knock), Shave and a Haircut, Woodblock, Doorbell, Bike Bell, Telegraph (T-A-L-K in Morse). Pro picks one per friend from the jack's right-click menu; it's what you hear when they knock. Kept on your Mac. |
 | Adding friends | All on the switchboard, no second window. A friend sends you their code (`TLK-7Q4F`), as text or on their line card. Press ADD (or click a free jack), type or paste it, and they land on the jack. Your code is yours to keep: it's how anyone adds you, and the rule below keeps that safe. Replaced the card file, punch and Rolodex (12 Oct): one place to do it is simpler. |
 | Windows | Borderless device windows. The title strip drags them and carries Talkie's own window keys, drawn as hollow ink circles: close and minimise work, zoom is off because the devices don't resize. ⌘W closes. |
 | Look | **Relay.** Light hardware grey, ink outlines, one signal orange; Jura for the hardware, Doto for the LCD. Rounded device shells (20pt windows), inset panels, short raised keys (5pt corners on a 3pt ink base). |
@@ -30,13 +32,15 @@ a patch cord into their jack. They hear a knock; when they let you in, the line 
 | Name | **Talkie.** switchtalkie.com is the address, not a new name. |
 | Ejected friends | Only the eight on your board can knock. Someone you ejected (or never added) can still try: nothing rings and your LCD notes it (`BEA · TRIED TO KNOCK · ADD THEM TO LET IN`). Pressing ADD then offers their code. On their side it's just no answer, so they can't tell they were ejected. |
 | Accounts and codes | No sign-up: Talkie signs in anonymously on first launch and the operator (Supabase) gives you a permanent code. Your board of eight lives on the server, so it comes back after a reinstall only if the sign-in does (kept in Talkie's preferences). Adding someone is one-way: their knock only rings for you once you've added them too. |
-| The line | When a knock is let in, both Macs join a LiveKit room named after that knock; a server function hands out the passes, only to the two people in it. The microphone is published on joining and muted except while you hold to talk. Real lines are one at a time for now (the practice board still does three-way). Voice effects only change the practice board until they're wired into the outgoing audio. |
+| The line | When a knock is let in, both Macs join a LiveKit room named after that knock; a server function hands out the passes, only to the two people in it. The microphone is published on joining and muted except while you hold to talk. Real lines are one at a time for now (the practice board still does three-way). |
 | Practice board | The simulated friends stay, one click away in the menu bar menu, so Talkie can be tried alone. |
 | Domain | **switchtalkie.com**: the switchboard plus the walkie-talkie, and the line between them. Hosts the landing page now and invite links later. |
 
 ## Still open
 
-- **Hear yourself?** Monitoring your own voice with effects is fun but can feed back through speakers. Maybe headphones only.
+- **Hear yourself live?** The Voice Effects window plays a recording back, which avoids feedback. Live monitoring would need headphones.
+- **Payments.** Lemon Squeezy or Paddle (they handle sales tax), with a webhook that sets `pro` and `pro_until`. After notarization.
+- **Enforcing call length on the server.** The server sets the limit; the app ends the call. A server-side cut-off (removing both people from the LiveKit room) can come with payments.
 - **iPhone?** iOS has Apple's Push to Talk framework. Mac first either way.
 
 ## Board anatomy (Relay)
@@ -71,5 +75,6 @@ out of that whole message when it's pasted in. The welcome screen shows it too.
 ## Build order
 
 1. **The board** — native SwiftUI switchboard, floating mic and adding friends by code, with real cord physics and haptics. *(done; the practice board keeps it)*
-2. **The line** — two Macs talking at the same time over LiveKit, with knocks, mute and DND. *(first version; effects and three-way still to come)*
-3. **The operator** — accounts, real codes behind ADD, presence lamps (Supabase). *(first version)* Next: notarization, launch at login by default.
+2. **The line** — two Macs talking at the same time over LiveKit, with knocks, mute, DND and voice effects. *(first version; three-way still to come)*
+3. **The operator** — accounts, real codes behind ADD, presence lamps (Supabase). *(first version)*
+4. **Free and Pro** — plans on the server, locked jacks, timed free calls, effects and knock sounds for Pro. *(done; payments after notarization)* Next: testing with friends, notarization, then payments.

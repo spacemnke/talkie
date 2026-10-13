@@ -1,5 +1,6 @@
 // A pass onto a line. Talkie calls this once a knock has been let in: both people get a LiveKit
 // token for the same room, named after the knock. Nobody else can get one for that room.
+// It also says how long the line can last: no limit if either person has Pro, ten minutes if not.
 //
 // Secrets (Supabase → Edge Functions → Secrets): LIVEKIT_URL, LIVEKIT_API_KEY, LIVEKIT_API_SECRET.
 // The caller is checked against Supabase Auth here, so the gateway's JWT check is off.
@@ -80,6 +81,9 @@ Deno.serve(async (req: Request) => {
   if (Date.now() - Date.parse(knock.answered_at) > PASS_SECONDS * 1000) return json({ error: "That line has closed" }, 403);
 
   const { data: me } = await supabase.from("profiles").select("name").eq("id", user.id).maybeSingle();
+  // Worked out from both plans on the server; null means no limit.
+  const { data: limit, error: limitError } = await supabase.rpc("line_limit", { knock_id: knock.id });
+  if (limitError) return json({ error: limitError.message }, 500);
   const room = `line-${knock.id}`;
   const now = Math.floor(Date.now() / 1000);
   const token = await liveKitToken({
@@ -90,5 +94,5 @@ Deno.serve(async (req: Request) => {
     exp: now + PASS_SECONDS,
     video: { room, roomJoin: true, canPublish: true, canSubscribe: true, canPublishData: true },
   });
-  return json({ url: LIVEKIT_URL, token, room });
+  return json({ url: LIVEKIT_URL, token, room, limit_seconds: limit ?? null });
 });

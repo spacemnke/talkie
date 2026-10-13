@@ -50,16 +50,22 @@ final class Operator {
     private var friendDND: [UUID: Bool] = [:]
     /// A friend who hasn't checked in for this long has gone away (they check in every 30 seconds).
     private static let awayAfter: TimeInterval = 75
+    /// Your Pro columns as last seen, to notice when they change.
+    private var proStamp: String?
 
     /// A friend's profile as it changes: they checked in, signed off or switched DND.
+    /// Your own row comes through too, which is how going Pro arrives.
     private struct CheckIn: Decodable {
         let id: UUID
         let dnd: Bool
         let lastSeen: String?
+        let pro: Bool?
+        let proUntil: String?
 
         enum CodingKeys: String, CodingKey {
-            case id, dnd
+            case id, dnd, pro
             case lastSeen = "last_seen"
+            case proUntil = "pro_until"
         }
     }
 
@@ -67,6 +73,18 @@ final class Operator {
         let id: UUID
         let code: String
         let name: String
+        let pro: Bool?
+        let proUntil: String?
+
+        enum CodingKeys: String, CodingKey {
+            case id, code, name, pro
+            case proUntil = "pro_until"
+        }
+    }
+
+    /// Your Pro columns, to notice when they change.
+    private static func stamp(pro: Bool?, until: String?) -> String {
+        "\(pro ?? false)|\(until ?? "")"
     }
 
     private struct BoardRow: Decodable {
@@ -148,6 +166,8 @@ final class Operator {
             }
             let profile: ProfileRow = try await client.rpc("ensure_profile", params: ["display_name": model.myName]).execute().value
             me = profile.id
+            proStamp = Self.stamp(pro: profile.pro, until: profile.proUntil)
+            let plan = try await fetchPlan()
             let rows: [BoardRow] = try await client.from("board")
                 .select("jack, friend, profile:profiles!board_friend_fkey(name)")
                 .eq("owner", value: profile.id.uuidString.lowercased())
@@ -158,7 +178,7 @@ final class Operator {
                 let id = localID(for: row.friend)
                 friends[row.jack] = Friend(id: id, name: (row.profile?.name ?? "FRIEND").uppercased(), online: false)
             }
-            model.operatorConnected(code: profile.code, friends: friends)
+            model.operatorConnected(code: profile.code, friends: friends, plan: plan)
             try await listen(me: profile.id)
             await checkIn()
             await refreshPresence()
@@ -186,6 +206,7 @@ final class Operator {
         channel = nil
         heardFrom = [:]
         friendDND = [:]
+        proStamp = nil
         outgoing = [:]
         incoming = [:]
     }
@@ -299,9 +320,22 @@ final class Operator {
         }
     }
 
-    /// A friend checked in, signed off or switched DND.
+    /// Free or Pro, as the server works it out (Pro can have an end date).
+    private func fetchPlan() async throws -> Plan {
+        let name: String = try await client.rpc("my_plan").execute().value
+        return Plan(rawValue: name) ?? .free
+    }
+
+    /// A friend checked in, signed off or switched DND. Or your own row changed: maybe you went Pro.
     private func checkedIn(_ change: CheckIn?) {
-        guard let change, change.id != me else { return }
+        guard let change else { return }
+        if change.id == me {
+            let stamp = Self.stamp(pro: change.pro, until: change.proUntil)
+            guard stamp != proStamp else { return }
+            proStamp = stamp
+            Task { if let plan = try? await fetchPlan() { model.operatorChangedPlan(plan) } }
+            return
+        }
         heardFrom[change.id] = change.lastSeen == nil ? nil : Date()
         friendDND[change.id] = change.dnd
         showPresence(change.id)
@@ -375,12 +409,17 @@ final class Operator {
 
     private func join(_ knockID: UUID, peer: UUID) {
         let muted = localIDs[peer].map { model.board.muted.contains($0) } ?? false
+        VoiceEffects.shared.set(model.board.effect)
         Task {
             do {
                 let pass: Line.Pass = try await client.functions.invoke(
                     "line-token",
                     options: FunctionInvokeOptions(body: ["knock_id": knockID.uuidString.lowercased()])
                 )
+                // The server knows both plans: a free call, or no limit because one of you has Pro.
+                if let limit = pass.limit, let jack = jack(of: peer) {
+                    model.apply { $0.setCallLimit(jack, limit); return [] }
+                }
                 try await line.join(pass, peer: peer, muted: muted)
                 // Joined, but the line may have been closed on the board meanwhile.
                 if let jack = jack(of: peer), !model.board.isLineOpen(jack) { await line.leave() }
@@ -446,6 +485,7 @@ final class Operator {
         }
         if old.doNotDisturb != new.doNotDisturb { Task { await checkIn() } }
         if old.talking != new.talking { line.setTalking(new.talking) }
+        if old.effect != new.effect { VoiceEffects.shared.set(new.effect) }
         if old.muted != new.muted, let peer = line.peer, let id = localIDs[peer] {
             line.setPeerMuted(new.muted.contains(id))
         }

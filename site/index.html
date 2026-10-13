@@ -241,6 +241,20 @@ kbd{font-family:var(--font-display);font-weight:700;font-size:.85em;letter-spaci
 .specs dd b{font-family:var(--font-display);font-weight:500;font-size:20px;letter-spacing:.04em;text-transform:uppercase}
 .specs dd span{color:var(--mute)}
 
+/* pricing: two plates, Pro with the orange band */
+.plans{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:clamp(18px,3vw,32px)}
+.plan{position:relative;display:grid;align-content:start;gap:18px;padding:clamp(20px,3vw,32px);background:var(--plate);border:2px solid var(--ink);border-radius:14px;box-shadow:6px 8px 0 var(--shadow);overflow:hidden}
+.plan.pro{background:var(--shell);padding-top:calc(clamp(20px,3vw,32px) + 10px)}
+.plan.pro::before{content:"";position:absolute;left:0;right:0;top:0;height:10px;background:var(--orange);border-bottom:2px solid var(--ink)}
+.plan header{display:flex;flex-wrap:wrap;align-items:baseline;justify-content:space-between;gap:6px 18px;padding-bottom:14px;border-bottom:2px solid var(--ink)}
+.plan h3{margin:0;font-family:var(--font-display);font-weight:600;font-size:14px;letter-spacing:.16em;text-transform:uppercase}
+.price{margin:0;display:flex;align-items:baseline;gap:10px}
+.price b{font-family:var(--font-display);font-weight:300;font-size:46px;line-height:1}
+.price span{color:var(--mute);font-size:15px}
+.plan .ticks{margin:0}
+.plan:not(.pro) .ticks li::before{background:var(--white)}
+.soon{font-family:var(--font-display);font-weight:600;font-size:11px;letter-spacing:.12em;text-transform:uppercase;color:var(--orange-ink)}
+
 /* download */
 .get{display:grid;grid-template-columns:minmax(0,1.1fr) minmax(0,1fr);gap:28px clamp(28px,5vw,64px);align-items:start;padding:clamp(22px,4vw,40px);background:var(--shell);border:2px solid var(--ink);border-radius:14px;box-shadow:6px 8px 0 var(--shadow)}
 .get-main{display:grid;gap:18px;align-content:start}
@@ -255,7 +269,7 @@ kbd{font-family:var(--font-display);font-weight:700;font-size:.85em;letter-spaci
 .foot a:hover{color:var(--orange-ink)}
 
 @media (max-width:900px){
-  .hero,.split,.get{grid-template-columns:minmax(0,1fr)}
+  .hero,.split,.get,.plans{grid-template-columns:minmax(0,1fr)}
   .try{max-width:460px;width:100%;justify-self:center}
   .steps{grid-template-columns:minmax(0,1fr)}
   .steps li,.steps li + li{padding:20px 0 22px;border-left:0;border-bottom:1.5px solid var(--ink)}
@@ -283,6 +297,7 @@ kbd{font-family:var(--font-display);font-weight:700;font-size:.85em;letter-spaci
       <a href="#mic">The mic</a>
       <a href="#friends">Friends</a>
       <a href="#specs">Specs</a>
+      <a href="#pricing">Pricing</a>
       <a class="key key-orange" href="#download">Download</a>
     </nav>
   </header>
@@ -406,7 +421,7 @@ kbd{font-family:var(--font-display);font-weight:700;font-size:.85em;letter-spaci
           <span class="label" style="color:var(--orange-ink)">Adding friends</span>
           <h2 id="friendsTitle">Eight jacks, one code each</h2>
           <p>Everyone on Talkie has a code, like <b>TLK-7Q4F</b>. When a friend sends you theirs, press ADD on your switchboard (or click a free jack) and type it in. They land on the jack, lamp and all.</p>
-          <p>Your board holds eight friends. Right-click a jack to eject someone and make room; their code brings them back any time.</p>
+          <p>Your board has eight jacks: three on Free, all eight on Pro. Right-click a jack to eject someone and make room; their code brings them back any time.</p>
           <p class="note">Send yours as a line card: a punched card with your name, your code and a hole pattern of its own.</p>
         </div>
         <div class="punchbox" aria-hidden="true">
@@ -430,16 +445,48 @@ kbd{font-family:var(--font-display);font-weight:700;font-size:.85em;letter-spaci
         <h2 id="specsTitle">On the board</h2>
       </div>
       <dl class="specs">
-        <div><dt>Lines</dt><dd><b>8 jacks</b><span>One friend per jack. Only those eight can open a line to you.</span></dd></div>
+        <div><dt>Lines</dt><dd><b>3 or 8 jacks</b><span>One friend per jack: three on Free, eight on Pro. Only friends on your jacks can knock.</span></dd></div>
         <div><dt>Cords</dt><dd><b>2</b><span>Plug both in for a three-way line.</span></dd></div>
         <div><dt>Opening a line</dt><dd><b>A knock</b><span>They let you in. Declining is silent: you just get no answer.</span></dd></div>
         <div><dt>Talking</dt><dd><b>Full duplex</b><span>You both talk at once, like a phone call.</span></dd></div>
         <div><dt>Mute</dt><dd><b>Private</b><span>The person you mute never sees it.</span></dd></div>
         <div><dt>Do not disturb</dt><dd><b>Knocks wait</b><span>A friend's cord stays in your jack and knocks when you're back.</span></dd></div>
-        <div><dt>Voice effects</dt><dd><b>4</b><span>Canyon, Tin can, Helium and Machine. Your friend hears them too.</span></dd></div>
+        <div><dt>Call length</dt><dd><b>10 min · No limit</b><span>Free calls run ten minutes. No limit when either of you has Pro.</span></dd></div>
+        <div><dt>Voice effects</dt><dd><b>4 · Pro</b><span>Canyon, Tin can, Helium and Machine, on your voice before it's sent. Anyone can try them.</span></dd></div>
+        <div><dt>Knock sounds</dt><dd><b>6 · Pro</b><span>Pick how each friend's knock sounds: knuckles, doorbell, Morse and more.</span></dd></div>
         <div><dt>Talk key</dt><dd><b>⌥ Space</b><span>Hold it from any app.</span></dd></div>
         <div><dt>System</dt><dd><b>macOS 14+</b><span>Sonoma or later, on Apple silicon or Intel. Lives in the menu bar.</span></dd></div>
       </dl>
+    </section>
+
+    <section class="sec" id="pricing" aria-labelledby="pricingTitle">
+      <div class="sec-head">
+        <span class="label">Pricing</span>
+        <h2 id="pricingTitle">Free, or the whole board</h2>
+      </div>
+      <div class="plans">
+        <article class="plan" aria-labelledby="planFree">
+          <header><h3 id="planFree">Free</h3><p class="price"><b>$0</b><span>for good</span></p></header>
+          <ul class="ticks">
+            <li><span><b>3 jacks:</b> three friends a patch away</span></li>
+            <li><span><b>10-minute calls,</b> with no limit if your friend has Pro</span></li>
+            <li><span>Knocking, the floating mic, do not disturb, private mute and buzz</span></li>
+            <li><span>The standard knock</span></li>
+            <li><span>Try every voice effect on your own voice</span></li>
+          </ul>
+        </article>
+        <article class="plan pro" aria-labelledby="planPro">
+          <header><h3 id="planPro">Pro</h3><p class="price"><b>$4</b><span>a month, or $36 a year</span></p></header>
+          <ul class="ticks">
+            <li><span><b>All 8 jacks</b></span></li>
+            <li><span><b>No time limit,</b> and none for any friend you call</span></li>
+            <li><span><b>Voice effects</b> on your calls: Canyon, Tin can, Helium, Machine</span></li>
+            <li><span><b>Knock sounds:</b> pick one for each friend</span></li>
+            <li><span>Everything in Free</span></li>
+          </ul>
+          <span class="soon">Payments open after the beta. Everyone is on Free until then.</span>
+        </article>
+      </div>
     </section>
 
     <section class="sec" id="download" aria-labelledby="getTitle" style="border-bottom:0">
@@ -447,7 +494,7 @@ kbd{font-family:var(--font-display);font-weight:700;font-size:.85em;letter-spaci
         <div class="get-main">
           <span class="label" style="color:var(--orange-ink)">Download</span>
           <h2 id="getTitle">Get the early build</h2>
-          <p>The switchboard, the floating mic and adding friends by code all work today, with practice friends to patch into. Real lines between Macs come next.</p>
+          <p>Real lines between Macs work today: send a friend your code, knock, and talk. There's a practice board with simulated friends too.</p>
           <a class="key key-orange" href="/download">Download Talkie.dmg <span class="led" aria-hidden="true"></span></a>
           <span class="cta-meta">Universal app · macOS 14 Sonoma or later</span>
         </div>

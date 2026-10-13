@@ -6,7 +6,7 @@ import TalkieCore
 // MARK: Shared pieces
 
 /// A wide key with a label, for the bottom of panels.
-private struct WideKey: View {
+struct WideKey: View {
     let title: String
     var width: CGFloat = 312
     let action: () -> Void
@@ -19,7 +19,7 @@ private struct WideKey: View {
     }
 }
 
-private struct Caption: View {
+struct Caption: View {
     let text: String
 
     var body: some View {
@@ -32,33 +32,112 @@ private struct Caption: View {
 
 // MARK: Voice effects
 
+/// Pick an effect, and hold TRY IT to hear it on your own voice. Anyone can try them; on Pro the
+/// people on your line hear the one you pick.
 struct EffectsView: View {
     let model: BoardModel
+    @State private var preview = EffectPreview()
+    /// On Free, the effect you're trying out (it isn't put on your calls).
+    @State private var trying: Effect = .canyon
 
     var body: some View {
+        let pro = model.board.plan.hasEffects
+        let chosen = pro ? model.board.effect : trying
         DeviceWindow(title: "VOICE EFFECTS") {
             VStack(alignment: .leading, spacing: 0) {
                 Text("CHANGE YOUR SIGNAL.")
                     .font(Fonts.jura(17, "Regular"))
                     .tracking(0.8)
                     .padding(.top, 22)
-                Text("The people on your line hear the effect.")
+                Text(pro ? "The people on your line hear the effect." : "Try them on your own voice. Pro puts them on your calls.")
                     .font(Fonts.jura(11, "Regular"))
                     .foregroundStyle(Palette.mute)
                     .padding(.top, 8)
                 VStack(spacing: 8) {
                     ForEach(Effect.allCases, id: \.self) { effect in
-                        EffectRow(effect: effect, selected: model.board.effect == effect) { model.setEffect(effect) }
+                        EffectRow(effect: effect, selected: chosen == effect, pro: !pro && effect != .off) {
+                            if pro { model.setEffect(effect) } else { trying = effect }
+                        }
                     }
                 }
                 .padding(.top, 18)
-                Caption(text: "SIDE KEY TO CYCLE · F ON THE BOARD")
+                TryKey(preview: preview, busy: model.board.isLive) {
+                    preview.stopRecording(effect: chosen, volume: Float(model.volume))
+                }
+                .padding(.top, 14)
+                if pro {
+                    Caption(text: "SIDE KEY TO CYCLE · F ON THE BOARD")
+                        .frame(maxWidth: .infinity)
+                        .padding(.top, 14)
+                } else {
+                    Button { model.onShowPro?() } label: {
+                        Text("GO PRO TO USE THEM ON CALLS →")
+                            .font(Fonts.jura(8.5, "SemiBold"))
+                            .tracking(1.2)
+                            .foregroundStyle(Palette.orange)
+                    }
+                    .buttonStyle(.plain)
                     .frame(maxWidth: .infinity)
-                    .padding(.top, 16)
+                    .padding(.top, 14)
+                }
             }
             .foregroundStyle(Palette.ink)
             .padding(EdgeInsets(top: 0, leading: 20, bottom: 18, trailing: 20))
             .frame(width: 330)
+        }
+        .onDisappear { preview.stopEverything() }
+    }
+}
+
+/// Hold to record a few seconds of your voice; let go to hear it back through the effect.
+private struct TryKey: View {
+    let preview: EffectPreview
+    /// A line is open: trying effects would play into the call.
+    let busy: Bool
+    let release: () -> Void
+    @State private var holding = false
+
+    var body: some View {
+        let shape = RoundedRectangle(cornerRadius: Radius.key, style: .continuous)
+        VStack(spacing: 6) {
+            Text(title)
+                .font(Fonts.jura(11, "SemiBold"))
+                .tracking(1.2)
+                .foregroundStyle(preview.state == .recording ? Palette.white : Palette.ink)
+                .frame(maxWidth: .infinity)
+                .frame(height: 40)
+                .background(shape.fill(preview.state == .recording ? Palette.orange : Palette.white))
+                .overlay(shape.strokeBorder(Palette.ink, lineWidth: 1.5))
+                .background(shape.fill(Palette.ink).offset(y: holding ? 1 : 3))
+                .offset(y: holding ? 2 : 0)
+                .contentShape(shape)
+                .opacity(busy ? 0.45 : 1)
+                .gesture(DragGesture(minimumDistance: 0)
+                    .onChanged { _ in
+                        guard !holding, !busy else { return }
+                        holding = true
+                        preview.startRecording()
+                    }
+                    .onEnded { _ in
+                        guard holding else { return }
+                        holding = false
+                        release()
+                    })
+                .accessibilityElement()
+                .accessibilityLabel("Try it")
+                .accessibilityHint("Hold to record your voice, let go to hear it with the effect.")
+                .accessibilityAddTraits(.isButton)
+            // Always one line, so the window keeps its size.
+            Caption(text: preview.problem ?? (busy ? "HANG UP TO TRY EFFECTS" : "PLAYS BACK WHAT YOU SAY"))
+                .frame(height: 12)
+        }
+    }
+
+    private var title: String {
+        switch preview.state {
+        case .idle: return "HOLD TO TRY IT"
+        case .recording: return "TALK · LET GO TO HEAR IT"
+        case .playing: return "PLAYING IT BACK…"
         }
     }
 }
@@ -66,6 +145,8 @@ struct EffectsView: View {
 private struct EffectRow: View {
     let effect: Effect
     let selected: Bool
+    /// Comes with Pro: on Free you can only try it here.
+    var pro = false
     let action: () -> Void
 
     var body: some View {
@@ -84,6 +165,7 @@ private struct EffectRow: View {
                     Text(effect.detail).font(Fonts.jura(10, "Regular")).foregroundStyle(Palette.mute)
                 }
                 Spacer(minLength: 0)
+                if pro { ProBadge() }
             }
             .padding(.horizontal, 13)
             .frame(height: 46)
@@ -164,6 +246,24 @@ struct SettingsView: View {
                 }
                 .padding(20)
                 .insetPanel(Palette.paper, radius: 14)
+                .padding(.top, 14)
+
+                HStack(alignment: .center) {
+                    VStack(alignment: .leading, spacing: 7) {
+                        Text("PLAN · \(model.board.plan.title)").font(Fonts.jura(11, "SemiBold")).tracking(1)
+                        Text(model.board.plan == .pro ? "Eight jacks, no time limit, effects and knock sounds."
+                            : "Three jacks and ten-minute calls. Pro opens the whole board.")
+                            .font(Fonts.jura(10, "Regular"))
+                            .foregroundStyle(Palette.mute)
+                    }
+                    Spacer(minLength: 0)
+                    Button { model.onShowPro?() } label: {
+                        Text(model.board.plan == .pro ? "PRO" : "SEE PRO").frame(width: 96, height: 32)
+                    }
+                    .buttonStyle(RelayKeyStyle())
+                }
+                .padding(20)
+                .insetPanel(radius: 14)
                 .padding(.top, 14)
 
                 HStack(alignment: .center) {

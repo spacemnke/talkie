@@ -33,7 +33,17 @@ const nobody = (await call(a.token, "/rest/v1/rpc/lookup_code", { method: "POST"
 check(Array.isArray(nobody) && nobody.length === 0, "an unknown code finds nobody");
 
 check((await call(a.token, "/rest/v1/board", { method: "POST", body: { owner: a.id, friend: b.id, jack: 0 } })).status === 201, "A puts B on jack 01");
-check((await call(b.token, "/rest/v1/board", { method: "POST", body: { owner: b.id, friend: a.id, jack: 3 } })).status === 201, "B puts A on jack 04");
+check((await call(b.token, "/rest/v1/board", { method: "POST", body: { owner: b.id, friend: a.id, jack: 2 } })).status === 201, "B puts A on jack 03");
+
+// Free or Pro: everyone starts on Free, with three jacks, and nobody can make themselves Pro.
+const plan = async (t) => (await call(t, "/rest/v1/rpc/my_plan", { method: "POST", body: {} })).json;
+check(await plan(a.token) === "free", "A starts on Free");
+check((await call(a.token, "/rest/v1/board", { method: "POST", body: { owner: a.id, friend: c.id, jack: 3 } })).status >= 400, "Free has no jack 04");
+check((await call(b.token, `/rest/v1/board?owner=eq.${b.id}&friend=eq.${a.id}`, { method: "PATCH", body: { jack: 6 } })).status >= 400
+  || (await call(b.token, `/rest/v1/board?owner=eq.${b.id}&select=jack`)).json[0]?.jack === 2, "Free can't move a friend onto jack 07");
+await call(a.token, `/rest/v1/profiles?id=eq.${a.id}`, { method: "PATCH", body: { pro: true } });
+check(await plan(a.token) === "free", "A can't make themselves Pro");
+check((await call(a.token, "/rest/v1/rpc/is_pro", { method: "POST", body: { person: a.id } })).status >= 400, "nobody can ask whether someone else is Pro");
 check((await call(c.token, "/rest/v1/board", { method: "POST", body: { owner: a.id, friend: c.id, jack: 1 } })).status >= 400, "C can't write on A's board");
 const boardA = (await call(a.token, "/rest/v1/board?select=jack,friend,profile:profiles!board_friend_fkey(name)")).json;
 check(boardA.length === 1 && boardA[0].profile?.name === "Bo", "A's board shows B by name");
@@ -65,6 +75,7 @@ if (passA.status === 503) {
   const claims = JSON.parse(Buffer.from(passA.json.token.split(".")[1], "base64url").toString());
   check(claims.sub === a.id && claims.video?.room === passA.json.room && claims.video?.roomJoin, "A's pass is for A, in that room");
   check(passA.json.url.startsWith("wss://"), "the LiveKit URL looks right: " + passA.json.url);
+  check(passA.json.limit_seconds === 600 && passB.json.limit_seconds === 600, "two Free friends get ten minutes");
 }
 check(passC.status === 404 || passC.status === 503, `C gets no pass (${passC.status})`);
 

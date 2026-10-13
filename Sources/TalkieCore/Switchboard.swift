@@ -35,6 +35,10 @@ public enum BoardEvent: Equatable, Sendable {
     case knockOut
     /// The board is waiting for a friend's code: put the cursor in the code field.
     case addFriend
+    /// You reached for something that comes with Pro: more jacks, voice effects or knock sounds.
+    case needsPro
+    /// A free call has a minute left.
+    case timeWarning
 }
 
 public struct Message: Equatable, Sendable {
@@ -100,11 +104,18 @@ public struct Switchboard: Equatable, Sendable {
     public private(set) var message: Message?
     /// The friend you last patched or who last patched you; they're the one who answers back.
     public private(set) var focus: Int?
+    /// Free or Pro: how many jacks you can use, how long calls last, and whether effects work.
+    public private(set) var plan: Plan
+    /// How long each open line can last (jack -> seconds from when it opened). No entry, no limit.
+    public private(set) var lineLimits: [Int: TimeInterval] = [:]
+    /// Lines that have had their one-minute warning.
+    public private(set) var warned: Set<Int> = []
 
-    public init(friends: [Friend?] = Friend.samples, myCode: String = "TLK-7Q4F", simulated: Bool = true) {
+    public init(friends: [Friend?] = Friend.samples, myCode: String = "TLK-7Q4F", simulated: Bool = true, plan: Plan = .pro) {
         self.friends = friends
         self.myCode = myCode
         self.simulated = simulated
+        self.plan = plan
     }
 
     // MARK: Lookups
@@ -121,9 +132,22 @@ public struct Switchboard: Equatable, Sendable {
         CordID.allCases.first { patches[$0] == nil }
     }
 
-    /// The first jack with nobody on it.
+    /// The first jack you can use with nobody on it.
     public var freeJack: Int? {
-        friends.firstIndex { $0 == nil }
+        friends.indices.first { friends[$0] == nil && !isLocked($0) }
+    }
+
+    /// Jacks past what your plan includes. Friends already on one stay there (after Pro ends, say),
+    /// but you can't patch them and their knocks don't ring until you go Pro or move them.
+    public func isLocked(_ jack: Int) -> Bool {
+        jack >= plan.jacks
+    }
+
+    /// How long until the first open line with a time limit ends. Nil when no line has one.
+    public func timeLeft(now: TimeInterval) -> TimeInterval? {
+        openJacks.compactMap { jack in
+            lineLimits[jack].flatMap { limit in openedAt(jack).map { limit - (now - $0) } }
+        }.min()
     }
 
     /// The jack a friend is on, by their id.
@@ -183,6 +207,7 @@ public struct Switchboard: Equatable, Sendable {
     /// Plugging into a friend's jack knocks. Plugging into a jack that's knocking on you lets them in.
     public mutating func patch(_ cord: CordID, into jack: Int, now: TimeInterval) -> [BoardEvent] {
         guard friends.indices.contains(jack) else { return [] }
+        if isLocked(jack) { return proOnly(jack: jack, now: now) }
         guard let f = friends[jack] else {
             say("FREE JACK", "CLICK IT TO ADD A FRIEND", now: now)
             return [.denied]
@@ -207,6 +232,7 @@ public struct Switchboard: Equatable, Sendable {
         } else if knocks.removeValue(forKey: jack) != nil || heldKnocks.remove(jack) != nil {
             // They were knocking: plugging in lets them in.
             status = .open
+            startClock(jack)
             say(f.name, "LET IN · LINE OPEN", now: now)
             events.append(.lineOpened)
         } else if !f.online {
@@ -235,6 +261,7 @@ public struct Switchboard: Equatable, Sendable {
         if let c = cord(at: jack) { return (nil, unpatch(c, now: now)) }
         if incoming[jack] != nil { return (nil, hangUp(jack, now: now)) }
         if knocks[jack] != nil || heldKnocks.contains(jack) { return (nil, letIn(jack, now: now)) }
+        if isLocked(jack) { return (nil, proOnly(jack: jack, now: now)) }
         guard friend(jack) != nil else { return (nil, startAdding(at: jack)) }
         guard let free = freeCord else {
             say("NO CORD", "PULL A PLUG FIRST", now: now)
@@ -276,6 +303,7 @@ public struct Switchboard: Equatable, Sendable {
         let was = wantsMic
         patches[c]?.status = .open
         patches[c]?.since = now
+        startClock(jack)
         if let f = friend(jack) { say(f.name, "LET YOU IN · LINE \(c.label) OPEN", now: now) }
         return [.lineOpened] + micTransition(was)
     }
@@ -283,6 +311,11 @@ public struct Switchboard: Equatable, Sendable {
     /// A friend on your board knocks. On do not disturb it waits until you switch it off.
     public mutating func friendKnocks(_ jack: Int, now: TimeInterval) -> [BoardEvent] {
         guard let f = friend(jack), f.online, incoming[jack] == nil, knocks[jack] == nil else { return [] }
+        if isLocked(jack) {
+            // A jack past your plan: like a knock from off the board, it doesn't ring.
+            say(f.name, "TRIED TO KNOCK · PRO JACK", now: now, for: 3)
+            return [.click]
+        }
         if let c = cord(at: jack) {
             // You're both knocking on each other: that's a yes from both of you.
             guard patches[c]?.status == .knocking else { return [] }
@@ -315,6 +348,7 @@ public struct Switchboard: Equatable, Sendable {
         knocks[jack] = nil
         heldKnocks.remove(jack)
         incoming[jack] = now
+        startClock(jack)
         focus = jack
         say(f.name, "LET IN · LINE OPEN", now: now)
         return [.lineOpened] + micTransition(was)
@@ -339,6 +373,7 @@ public struct Switchboard: Equatable, Sendable {
     /// The friend on a line hung up (or their connection dropped). Your cord comes out.
     public mutating func friendHungUp(_ jack: Int, now: TimeInterval) -> [BoardEvent] {
         let was = wantsMic
+        let ranOut = timeLeft(of: jack, now: now).map { $0 <= 5 } ?? false
         var closed = false
         if let c = cord(at: jack), patches[c]?.status == .open {
             patches[c] = nil
@@ -346,8 +381,13 @@ public struct Switchboard: Equatable, Sendable {
         }
         if incoming.removeValue(forKey: jack) != nil { closed = true }
         guard closed else { return [] }
+        if ranOut, let limit = lineLimits[jack] {
+            // Their side ended the free call a moment before yours did.
+            timesUp(limit, now: now)
+        } else if let f = friend(jack) {
+            say(f.name, "HUNG UP", now: now, for: 2.4)
+        }
         clearFriend(jack)
-        if let f = friend(jack) { say(f.name, "HUNG UP", now: now, for: 2.4) }
         return [.lineClosed] + micTransition(was)
     }
 
@@ -382,7 +422,7 @@ public struct Switchboard: Equatable, Sendable {
 
     /// Get ready for a friend's code. They'll go on `jack` if it's free, otherwise the first free jack.
     public mutating func startAdding(at jack: Int? = nil) -> [BoardEvent] {
-        let target = jack.flatMap { friends.indices.contains($0) && friends[$0] == nil ? $0 : nil }
+        let target = jack.flatMap { friends.indices.contains($0) && friends[$0] == nil && !isLocked($0) ? $0 : nil }
         adding = Adding(jack: target)
         message = nil
         return [.addFriend]
@@ -394,7 +434,7 @@ public struct Switchboard: Equatable, Sendable {
 
     /// Where the next friend you add will go: the jack you clicked, or the first free one.
     public var addingJack: Int? {
-        if let jack = adding?.jack, friends[jack] == nil { return jack }
+        if let jack = adding?.jack, friends[jack] == nil, !isLocked(jack) { return jack }
         return freeJack
     }
 
@@ -414,14 +454,18 @@ public struct Switchboard: Equatable, Sendable {
         if let jack = self.jack(of: invite.friend.id) {
             return refuse(.onBoard(jack: jack), name, "ALREADY ON JACK " + Self.pad(jack))
         }
-        guard let jack = addingJack else { return refuse(.boardFull, name, "BOARD FULL · EJECT SOMEONE FIRST") }
+        guard let jack = addingJack else {
+            guard plan == .free else { return refuse(.boardFull, name, "BOARD FULL · EJECT SOMEONE FIRST") }
+            let refused = refuse(.boardFull, name, "BOARD FULL · GO PRO FOR \(Plan.pro.jacks) JACKS")
+            return (refused.result, refused.events + [.needsPro])
+        }
         adding = nil
         return (.added(jack: jack), addFriend(invite.friend, at: jack, now: now))
     }
 
     /// Puts a friend on a free jack.
     public mutating func addFriend(_ f: Friend, at jack: Int, now: TimeInterval) -> [BoardEvent] {
-        guard friends.indices.contains(jack), friends[jack] == nil, self.jack(of: f.id) == nil else { return [] }
+        guard friends.indices.contains(jack), friends[jack] == nil, !isLocked(jack), self.jack(of: f.id) == nil else { return [] }
         friends[jack] = f
         say(f.name, "NEW ON JACK " + Self.pad(jack), now: now, for: 2.6)
         return [.plugged]
@@ -462,6 +506,20 @@ public struct Switchboard: Equatable, Sendable {
         for (jack, since) in knocks where now - since >= Self.knockTimeout {
             knocks[jack] = nil
             say(friend(jack)?.name ?? "JACK " + Self.pad(jack), "KNOCKED · MISSED", now: now, for: 4)
+        }
+        // Free calls: a warning a minute before the end, then the line closes.
+        for jack in openJacks {
+            guard let limit = lineLimits[jack], let left = timeLeft(of: jack, now: now) else { continue }
+            if left <= 0 {
+                if let c = cord(at: jack) { patches[c] = nil }
+                incoming[jack] = nil
+                clearFriend(jack)
+                timesUp(limit, now: now)
+                events.append(.lineClosed)
+            } else if left <= Plan.warnBefore, !warned.contains(jack) {
+                warned.insert(jack)
+                events.append(.timeWarning)
+            }
         }
         if let m = message, now >= m.until { message = nil }
         for (jack, window) in replies {
@@ -504,8 +562,12 @@ public struct Switchboard: Equatable, Sendable {
     }
 
     public mutating func setEffect(_ e: Effect, now: TimeInterval) -> [BoardEvent] {
+        if e != .off, !plan.hasEffects {
+            say("VOICE EFFECTS", "PRO ONLY · GO PRO TO CHANGE YOUR VOICE", now: now, for: 2.6)
+            return [.denied, .needsPro]
+        }
         effect = e
-        say(e == .off ? "FX OFF" : e.title, e == .off ? e.blurb : "\(e.blurb) · HOLD TO HEAR", now: now, for: 2.2)
+        say(e == .off ? "FX OFF" : e.title, e == .off ? e.blurb : "\(e.blurb) · THEY'LL HEAR IT", now: now, for: 2.2)
         return [.click]
     }
 
@@ -535,6 +597,60 @@ public struct Switchboard: Equatable, Sendable {
             events.append(.knockIn)
         }
         return events + micTransition(was)
+    }
+
+    // MARK: Free or Pro
+
+    /// Keeps the effect you had when the board is rebuilt (going online, say), if your plan has effects.
+    public mutating func restoreEffect(_ e: Effect) {
+        if plan.hasEffects { effect = e }
+    }
+
+    /// Going Pro opens every jack and lifts the time limit on lines already open. Going back to Free
+    /// switches effects off and closes anything on a jack past the first three. The friends there stay.
+    public mutating func setPlan(_ next: Plan, now: TimeInterval) -> [BoardEvent] {
+        guard next != plan else { return [] }
+        let was = wantsMic
+        plan = next
+        var events: [BoardEvent] = [.click]
+        if next == .pro {
+            lineLimits.removeAll()
+            warned.removeAll()
+            say("TALKIE PRO", "\(Plan.pro.jacks) JACKS · EFFECTS · NO TIME LIMIT", now: now, for: 3)
+        } else {
+            effect = .off
+            for jack in friends.indices where isLocked(jack) {
+                if let c = cord(at: jack) {
+                    if patches[c]?.status == .open { events.append(.lineClosed) }
+                    patches[c] = nil
+                }
+                if incoming.removeValue(forKey: jack) != nil { events.append(.lineClosed) }
+                knocks[jack] = nil
+                heldKnocks.remove(jack)
+                clearFriend(jack)
+            }
+            if let jack = adding?.jack, isLocked(jack) { adding?.jack = nil }
+            say("TALKIE FREE", "\(Plan.free.jacks) JACKS · \(Int(Plan.freeCallLength / 60))-MINUTE CALLS", now: now, for: 3)
+        }
+        return events + micTransition(was)
+    }
+
+    /// How long a line can last, once the operator has worked it out from both your plans.
+    /// Nil means no limit (one of you has Pro).
+    public mutating func setCallLimit(_ jack: Int, _ seconds: TimeInterval?) {
+        guard isLineOpen(jack) else { return }
+        lineLimits[jack] = seconds
+        if seconds == nil { warned.remove(jack) }
+    }
+
+    /// Practice board: bring every timed line to its last `seconds`, to see the end of a free call
+    /// without waiting for it.
+    public mutating func endLinesSoon(in seconds: TimeInterval, now: TimeInterval) {
+        for jack in openJacks where lineLimits[jack] != nil {
+            guard let opened = openedAt(jack) else { continue }
+            lineLimits[jack] = now - opened + seconds
+            warned.remove(jack)
+        }
     }
 
     // MARK: The other end (simulated on the practice board, from the network otherwise)
@@ -640,7 +756,10 @@ public struct Switchboard: Equatable, Sendable {
     public func readout(now: TimeInterval) -> Readout {
         if let m = message { return Readout(big: m.big, sub: m.sub) }
         if adding != nil {
-            guard let jack = addingJack else { return Readout(big: "BOARD FULL", sub: "RIGHT-CLICK A JACK TO EJECT SOMEONE") }
+            guard let jack = addingJack else {
+                if plan == .free { return Readout(big: "BOARD FULL", sub: "\(plan.jacks) JACKS ON FREE · GO PRO FOR \(Plan.pro.jacks)") }
+                return Readout(big: "BOARD FULL", sub: "RIGHT-CLICK A JACK TO EJECT SOMEONE")
+            }
             return Readout(big: "ADD A FRIEND", sub: "JACK \(Self.pad(jack)) · TYPE OR PASTE THEIR CODE")
         }
         let name: (Int) -> String = { self.friend($0)?.name ?? "?" }
@@ -661,7 +780,9 @@ public struct Switchboard: Equatable, Sendable {
         let held = corded.filter { $0.patch.status == .waitingDND }.map { name($0.patch.jack) }
 
         let sub: String
-        if !rx.isEmpty {
+        if let left = timeLeft(now: now), left <= Plan.warnBefore {
+            sub = "FREE CALL · \(Self.clock(left.rounded(.up))) LEFT"
+        } else if !rx.isEmpty {
             sub = rx.joined(separator: " + ") + " TALKING"
         } else if talking && !open.isEmpty {
             sub = "TALKING TO " + open.map(name).joined(separator: " + ")
@@ -718,6 +839,30 @@ public struct Switchboard: Equatable, Sendable {
         replies[jack] = nil
         mutedYou.remove(jack)
         buzzing[jack] = nil
+        lineLimits[jack] = nil
+        warned.remove(jack)
+    }
+
+    /// A line just opened on `jack`: a free plan starts the clock. The operator may lift it once it
+    /// knows the other end has Pro.
+    private mutating func startClock(_ jack: Int) {
+        lineLimits[jack] = plan.callLimit
+        warned.remove(jack)
+    }
+
+    private func timeLeft(of jack: Int, now: TimeInterval) -> TimeInterval? {
+        guard let limit = lineLimits[jack], let opened = openedAt(jack) else { return nil }
+        return limit - (now - opened)
+    }
+
+    private mutating func timesUp(_ limit: TimeInterval, now: TimeInterval) {
+        say("TIME'S UP", "FREE CALLS END AT \(Int(limit / 60)) MINUTES · GO PRO", now: now, for: 5)
+    }
+
+    /// A jack past the first three on Free.
+    private mutating func proOnly(jack: Int, now: TimeInterval) -> [BoardEvent] {
+        say("PRO JACK", "GO PRO FOR \(Plan.pro.jacks) JACKS", now: now, for: 2.4)
+        return [.denied, .needsPro]
     }
 
     /// The mic drops when a line opens or someone knocks, and winds back up when neither is true.
