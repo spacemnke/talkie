@@ -1,0 +1,96 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="512" height="512" viewBox="0 0 512 512" fill="none" role="img" aria-labelledby="talkie-logo-title">
+  <title id="talkie-logo-title">Talkie smiling dot grille</title>
+  <!-- Approved smiley with eyes. Native vector shapes only; no fonts or embedded images.
+       Square housing: 512 x 512, corner radius 12.
+       Grid: 9 x 9, pitch 52, circle radius 16.
+       Edit the three group fills to change colors. Keep proportions and dot positions.
+       Transparent outside the housing; no presentation background.
+       Facial dots are separated for optional animation. -->
+  <rect id="housing" width="512" height="512" rx="12" fill="#181818"/>
+  <g id="inactive-dots" fill="#414141">
+    <circle id="dot-r1-c1" cx="48" cy="48" r="16"/>
+    <circle id="dot-r1-c2" cx="100" cy="48" r="16"/>
+    <circle id="dot-r1-c3" cx="152" cy="48" r="16"/>
+    <circle id="dot-r1-c4" cx="204" cy="48" r="16"/>
+    <circle id="dot-r1-c5" cx="256" cy="48" r="16"/>
+    <circle id="dot-r1-c6" cx="308" cy="48" r="16"/>
+    <circle id="dot-r1-c7" cx="360" cy="48" r="16"/>
+    <circle id="dot-r1-c8" cx="412" cy="48" r="16"/>
+    <circle id="dot-r1-c9" cx="464" cy="48" r="16"/>
+    <circle id="dot-r2-c1" cx="48" cy="100" r="16"/>
+    <circle id="dot-r2-c2" cx="100" cy="100" r="16"/>
+    <circle id="dot-r2-c3" cx="152" cy="100" r="16"/>
+    <circle id="dot-r2-c4" cx="204" cy="100" r="16"/>
+    <circle id="dot-r2-c5" cx="256" cy="100" r="16"/>
+    <circle id="dot-r2-c6" cx="308" cy="100" r="16"/>
+    <circle id="dot-r2-c7" cx="360" cy="100" r="16"/>
+    <circle id="dot-r2-c8" cx="412" cy="100" r="16"/>
+    <circle id="dot-r2-c9" cx="464" cy="100" r="16"/>
+    <circle id="dot-r3-c1" cx="48" cy="152" r="16"/>
+    <circle id="dot-r3-c2" cx="100" cy="152" r="16"/>
+    <circle id="dot-r3-c4" cx="204" cy="152" r="16"/>
+    <circle id="dot-r3-c5" cx="256" cy="152" r="16"/>
+    <circle id="dot-r3-c6" cx="308" cy="152" r="16"/>
+    <circle id="dot-r3-c8" cx="412" cy="152" r="16"/>
+    <circle id="dot-r3-c9" cx="464" cy="152" r="16"/>
+    <circle id="dot-r4-c1" cx="48" cy="204" r="16"/>
+    <circle id="dot-r4-c2" cx="100" cy="204" r="16"/>
+    <circle id="dot-r4-c3" cx="152" cy="204" r="16"/>
+    <circle id="dot-r4-c4" cx="204" cy="204" r="16"/>
+    <circle id="dot-r4-c5" cx="256" cy="204" r="16"/>
+    <circle id="dot-r4-c6" cx="308" cy="204" r="16"/>
+    <circle id="dot-r4-c7" cx="360" cy="204" r="16"/>
+    <circle id="dot-r4-c8" cx="412" cy="204" r="16"/>
+    <circle id="dot-r4-c9" cx="464" cy="204" r="16"/>
+    <circle id="dot-r5-c1" cx="48" cy="256" r="16"/>
+    <circle id="dot-r5-c2" cx="100" cy="256" r="16"/>
+    <circle id="dot-r5-c3" cx="152" cy="256" r="16"/>
+    <circle id="dot-r5-c4" cx="204" cy="256" r="16"/>
+    <circle id="dot-r5-c5" cx="256" cy="256" r="16"/>
+    <circle id="dot-r5-c6" cx="308" cy="256" r="16"/>
+    <circle id="dot-r5-c7" cx="360" cy="256" r="16"/>
+    <circle id="dot-r5-c8" cx="412" cy="256" r="16"/>
+    <circle id="dot-r5-c9" cx="464" cy="256" r="16"/>
+    <circle id="dot-r6-c1" cx="48" cy="308" r="16"/>
+    <circle id="dot-r6-c2" cx="100" cy="308" r="16"/>
+    <circle id="dot-r6-c4" cx="204" cy="308" r="16"/>
+    <circle id="dot-r6-c5" cx="256" cy="308" r="16"/>
+    <circle id="dot-r6-c6" cx="308" cy="308" r="16"/>
+    <circle id="dot-r6-c8" cx="412" cy="308" r="16"/>
+    <circle id="dot-r6-c9" cx="464" cy="308" r="16"/>
+    <circle id="dot-r7-c1" cx="48" cy="360" r="16"/>
+    <circle id="dot-r7-c2" cx="100" cy="360" r="16"/>
+    <circle id="dot-r7-c3" cx="152" cy="360" r="16"/>
+    <circle id="dot-r7-c7" cx="360" cy="360" r="16"/>
+    <circle id="dot-r7-c8" cx="412" cy="360" r="16"/>
+    <circle id="dot-r7-c9" cx="464" cy="360" r="16"/>
+    <circle id="dot-r8-c1" cx="48" cy="412" r="16"/>
+    <circle id="dot-r8-c2" cx="100" cy="412" r="16"/>
+    <circle id="dot-r8-c3" cx="152" cy="412" r="16"/>
+    <circle id="dot-r8-c4" cx="204" cy="412" r="16"/>
+    <circle id="dot-r8-c5" cx="256" cy="412" r="16"/>
+    <circle id="dot-r8-c6" cx="308" cy="412" r="16"/>
+    <circle id="dot-r8-c7" cx="360" cy="412" r="16"/>
+    <circle id="dot-r8-c8" cx="412" cy="412" r="16"/>
+    <circle id="dot-r8-c9" cx="464" cy="412" r="16"/>
+    <circle id="dot-r9-c1" cx="48" cy="464" r="16"/>
+    <circle id="dot-r9-c2" cx="100" cy="464" r="16"/>
+    <circle id="dot-r9-c3" cx="152" cy="464" r="16"/>
+    <circle id="dot-r9-c4" cx="204" cy="464" r="16"/>
+    <circle id="dot-r9-c5" cx="256" cy="464" r="16"/>
+    <circle id="dot-r9-c6" cx="308" cy="464" r="16"/>
+    <circle id="dot-r9-c7" cx="360" cy="464" r="16"/>
+    <circle id="dot-r9-c8" cx="412" cy="464" r="16"/>
+    <circle id="dot-r9-c9" cx="464" cy="464" r="16"/>
+  </g>
+  <g id="face-dots" fill="#FBFBF9">
+    <circle id="dot-r3-c3" cx="152" cy="152" r="16"/>
+    <circle id="dot-r3-c7" cx="360" cy="152" r="16"/>
+    <circle id="dot-r6-c3" cx="152" cy="308" r="16"/>
+    <circle id="dot-r6-c7" cx="360" cy="308" r="16"/>
+    <circle id="dot-r7-c4" cx="204" cy="360" r="16"/>
+    <circle id="dot-r7-c5" cx="256" cy="360" r="16"/>
+    <circle id="dot-r7-c6" cx="308" cy="360" r="16"/>
+  </g>
+</svg>
+

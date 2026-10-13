@@ -1,0 +1,23 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1024" height="1024" viewBox="0 0 1024 1024">
+  <!-- Talkie app icon at 16 px: the face only, larger, so it reads that small. Otherwise as AppIcon.svg.
+       Talkie app icon: the smiling dot grille (design/icon/Talkie-Smiley-Logo.svg) placed on
+       Apple's 1024 grid, an 824 body at 100,100 with a soft shadow, like other Mac app icons. -->
+  <defs>
+    <filter id="shadow" x="-10%" y="-10%" width="120%" height="130%">
+      <feDropShadow dx="0" dy="6" stdDeviation="6" flood-color="#000000" flood-opacity="0.3"/>
+    </filter>
+  </defs>
+  <g filter="url(#shadow)" transform="translate(100,100) scale(1.609375)">
+    <rect id="housing" width="512" height="512" rx="12" fill="#181818"/>
+  
+  <g id="face-dots" fill="#FBFBF9">
+    <circle id="dot-r3-c3" cx="152" cy="152" r="30"/>
+    <circle id="dot-r3-c7" cx="360" cy="152" r="30"/>
+    <circle id="dot-r6-c3" cx="152" cy="308" r="30"/>
+    <circle id="dot-r6-c7" cx="360" cy="308" r="30"/>
+    <circle id="dot-r7-c4" cx="204" cy="360" r="30"/>
+    <circle id="dot-r7-c5" cx="256" cy="360" r="30"/>
+    <circle id="dot-r7-c6" cx="308" cy="360" r="30"/>
+  </g>
+  </g>
+</svg>

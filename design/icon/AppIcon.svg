@@ -1,13 +1,97 @@
 <svg xmlns="http://www.w3.org/2000/svg" width="1024" height="1024" viewBox="0 0 1024 1024">
-  <!-- Talkie app icon (Relay). The 128-unit concept placed on Apple's 1024 grid: an 824 body at 100,100. -->
-  <g transform="translate(100,100) scale(6.8667) translate(-4,-4)">
-    <rect x="7" y="8" width="120" height="120" rx="27" fill="#1B1B1B" opacity=".16"/>
-    <rect x="4" y="4" width="120" height="120" rx="27" fill="#D3D4D4" stroke="#1B1B1B" stroke-width="2"/>
-    <rect x="14" y="14" width="100" height="100" rx="19" fill="#E7E4DD" stroke="#1B1B1B" stroke-width="1.5"/>
-    <path d="M64 70 C31 80 101 86 97 117" fill="none" stroke="#1B1B1B" stroke-width="10" stroke-linecap="round" stroke-linejoin="round"/>
-    <path d="M64 70 C31 80 101 86 97 117" fill="none" stroke="#E0663A" stroke-width="6" stroke-linecap="round" stroke-linejoin="round"/>
-    <circle cx="64" cy="52" r="29" fill="#FBFBF9" stroke="#1B1B1B" stroke-width="2"/>
-    <circle cx="64" cy="52" r="20" fill="#E0663A" stroke="#1B1B1B" stroke-width="2"/>
-    <circle cx="64" cy="52" r="10" fill="#242424"/>
+  <!-- Talkie app icon: the smiling dot grille (design/icon/Talkie-Smiley-Logo.svg) placed on
+       Apple's 1024 grid, an 824 body at 100,100 with a soft shadow, like other Mac app icons. -->
+  <defs>
+    <filter id="shadow" x="-10%" y="-10%" width="120%" height="130%">
+      <feDropShadow dx="0" dy="6" stdDeviation="6" flood-color="#000000" flood-opacity="0.3"/>
+    </filter>
+  </defs>
+  <g filter="url(#shadow)" transform="translate(100,100) scale(1.609375)">
+    <rect id="housing" width="512" height="512" rx="12" fill="#181818"/>
+  <g id="inactive-dots" fill="#414141">
+    <circle id="dot-r1-c1" cx="48" cy="48" r="16"/>
+    <circle id="dot-r1-c2" cx="100" cy="48" r="16"/>
+    <circle id="dot-r1-c3" cx="152" cy="48" r="16"/>
+    <circle id="dot-r1-c4" cx="204" cy="48" r="16"/>
+    <circle id="dot-r1-c5" cx="256" cy="48" r="16"/>
+    <circle id="dot-r1-c6" cx="308" cy="48" r="16"/>
+    <circle id="dot-r1-c7" cx="360" cy="48" r="16"/>
+    <circle id="dot-r1-c8" cx="412" cy="48" r="16"/>
+    <circle id="dot-r1-c9" cx="464" cy="48" r="16"/>
+    <circle id="dot-r2-c1" cx="48" cy="100" r="16"/>
+    <circle id="dot-r2-c2" cx="100" cy="100" r="16"/>
+    <circle id="dot-r2-c3" cx="152" cy="100" r="16"/>
+    <circle id="dot-r2-c4" cx="204" cy="100" r="16"/>
+    <circle id="dot-r2-c5" cx="256" cy="100" r="16"/>
+    <circle id="dot-r2-c6" cx="308" cy="100" r="16"/>
+    <circle id="dot-r2-c7" cx="360" cy="100" r="16"/>
+    <circle id="dot-r2-c8" cx="412" cy="100" r="16"/>
+    <circle id="dot-r2-c9" cx="464" cy="100" r="16"/>
+    <circle id="dot-r3-c1" cx="48" cy="152" r="16"/>
+    <circle id="dot-r3-c2" cx="100" cy="152" r="16"/>
+    <circle id="dot-r3-c4" cx="204" cy="152" r="16"/>
+    <circle id="dot-r3-c5" cx="256" cy="152" r="16"/>
+    <circle id="dot-r3-c6" cx="308" cy="152" r="16"/>
+    <circle id="dot-r3-c8" cx="412" cy="152" r="16"/>
+    <circle id="dot-r3-c9" cx="464" cy="152" r="16"/>
+    <circle id="dot-r4-c1" cx="48" cy="204" r="16"/>
+    <circle id="dot-r4-c2" cx="100" cy="204" r="16"/>
+    <circle id="dot-r4-c3" cx="152" cy="204" r="16"/>
+    <circle id="dot-r4-c4" cx="204" cy="204" r="16"/>
+    <circle id="dot-r4-c5" cx="256" cy="204" r="16"/>
+    <circle id="dot-r4-c6" cx="308" cy="204" r="16"/>
+    <circle id="dot-r4-c7" cx="360" cy="204" r="16"/>
+    <circle id="dot-r4-c8" cx="412" cy="204" r="16"/>
+    <circle id="dot-r4-c9" cx="464" cy="204" r="16"/>
+    <circle id="dot-r5-c1" cx="48" cy="256" r="16"/>
+    <circle id="dot-r5-c2" cx="100" cy="256" r="16"/>
+    <circle id="dot-r5-c3" cx="152" cy="256" r="16"/>
+    <circle id="dot-r5-c4" cx="204" cy="256" r="16"/>
+    <circle id="dot-r5-c5" cx="256" cy="256" r="16"/>
+    <circle id="dot-r5-c6" cx="308" cy="256" r="16"/>
+    <circle id="dot-r5-c7" cx="360" cy="256" r="16"/>
+    <circle id="dot-r5-c8" cx="412" cy="256" r="16"/>
+    <circle id="dot-r5-c9" cx="464" cy="256" r="16"/>
+    <circle id="dot-r6-c1" cx="48" cy="308" r="16"/>
+    <circle id="dot-r6-c2" cx="100" cy="308" r="16"/>
+    <circle id="dot-r6-c4" cx="204" cy="308" r="16"/>
+    <circle id="dot-r6-c5" cx="256" cy="308" r="16"/>
+    <circle id="dot-r6-c6" cx="308" cy="308" r="16"/>
+    <circle id="dot-r6-c8" cx="412" cy="308" r="16"/>
+    <circle id="dot-r6-c9" cx="464" cy="308" r="16"/>
+    <circle id="dot-r7-c1" cx="48" cy="360" r="16"/>
+    <circle id="dot-r7-c2" cx="100" cy="360" r="16"/>
+    <circle id="dot-r7-c3" cx="152" cy="360" r="16"/>
+    <circle id="dot-r7-c7" cx="360" cy="360" r="16"/>
+    <circle id="dot-r7-c8" cx="412" cy="360" r="16"/>
+    <circle id="dot-r7-c9" cx="464" cy="360" r="16"/>
+    <circle id="dot-r8-c1" cx="48" cy="412" r="16"/>
+    <circle id="dot-r8-c2" cx="100" cy="412" r="16"/>
+    <circle id="dot-r8-c3" cx="152" cy="412" r="16"/>
+    <circle id="dot-r8-c4" cx="204" cy="412" r="16"/>
+    <circle id="dot-r8-c5" cx="256" cy="412" r="16"/>
+    <circle id="dot-r8-c6" cx="308" cy="412" r="16"/>
+    <circle id="dot-r8-c7" cx="360" cy="412" r="16"/>
+    <circle id="dot-r8-c8" cx="412" cy="412" r="16"/>
+    <circle id="dot-r8-c9" cx="464" cy="412" r="16"/>
+    <circle id="dot-r9-c1" cx="48" cy="464" r="16"/>
+    <circle id="dot-r9-c2" cx="100" cy="464" r="16"/>
+    <circle id="dot-r9-c3" cx="152" cy="464" r="16"/>
+    <circle id="dot-r9-c4" cx="204" cy="464" r="16"/>
+    <circle id="dot-r9-c5" cx="256" cy="464" r="16"/>
+    <circle id="dot-r9-c6" cx="308" cy="464" r="16"/>
+    <circle id="dot-r9-c7" cx="360" cy="464" r="16"/>
+    <circle id="dot-r9-c8" cx="412" cy="464" r="16"/>
+    <circle id="dot-r9-c9" cx="464" cy="464" r="16"/>
+  </g>
+  <g id="face-dots" fill="#FBFBF9">
+    <circle id="dot-r3-c3" cx="152" cy="152" r="16"/>
+    <circle id="dot-r3-c7" cx="360" cy="152" r="16"/>
+    <circle id="dot-r6-c3" cx="152" cy="308" r="16"/>
+    <circle id="dot-r6-c7" cx="360" cy="308" r="16"/>
+    <circle id="dot-r7-c4" cx="204" cy="360" r="16"/>
+    <circle id="dot-r7-c5" cx="256" cy="360" r="16"/>
+    <circle id="dot-r7-c6" cx="308" cy="360" r="16"/>
+  </g>
   </g>
 </svg>
