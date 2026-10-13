@@ -3,6 +3,7 @@ import AVFoundation
 import AudioToolbox
 import CoreAudio
 import Observation
+import TalkieCore
 
 /// A microphone or speaker the Mac knows about.
 struct AudioDevice: Identifiable, Hashable {
@@ -160,16 +161,11 @@ final class InputLevel {
             var loudest: Float = 0
             var signal = false
             for c in 0..<Int(buffer.format.channelCount) {
-                var sum: Float = 0
-                for i in 0..<count {
-                    let x = channels[c][i]
-                    sum += x * x
-                    if x != 0 { signal = true }
-                }
-                loudest = max(loudest, (sum / Float(max(count, 1))).squareRoot())
+                let samples = UnsafeBufferPointer(start: channels[c], count: count)
+                if !signal, samples.contains(where: { $0 != 0 }) { signal = true }
+                loudest = max(loudest, Loudness.rms(samples))
             }
-            let decibels = 20 * log10(max(loudest, 0.000_01))
-            let value = Double(min(max((decibels + 55) / 50, 0), 1))
+            let value = Loudness.meter(rms: loudest)
             Task { @MainActor in self?.heard(value, signal: signal) }
         }
         do {

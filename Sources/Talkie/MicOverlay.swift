@@ -75,13 +75,24 @@ final class MicOverlay {
     func install() {
         rebuild()
         NotificationCenter.default.addObserver(forName: NSApplication.didChangeScreenParametersNotification, object: nil, queue: .main) { [weak self] _ in
-            MainActor.assumeIsolated { self?.rebuild() }
+            MainActor.assumeIsolated {
+                guard let self else { return }
+                // Displays changed: a mic that's out stays on its screen if that screen is still there.
+                let current = self.screen.flatMap { s in NSScreen.screens.first { Self.id($0) == Self.id(s) } }
+                self.rebuild(on: self.model.mic.mode == .hidden ? nil : current)
+            }
         }
     }
 
-    private func rebuild() {
+    /// Displays are told apart by their number; NSScreen objects come and go.
+    private static func id(_ screen: NSScreen) -> NSNumber? {
+        screen.deviceDescription[NSDeviceDescriptionKey("NSScreenNumber")] as? NSNumber
+    }
+
+    /// Puts the overlay on a screen: the one asked for, or the one whose menu bar has the Talkie icon.
+    private func rebuild(on target: NSScreen? = nil) {
         panel?.orderOut(nil)
-        guard let screen = statusButton?.window?.screen ?? NSScreen.main ?? NSScreen.screens.first else { return }
+        guard let screen = target ?? statusButton?.window?.screen ?? NSScreen.main ?? NSScreen.screens.first else { return }
         self.screen = screen
         let p = OverlayPanel(screen: screen)
         let container = NSView(frame: NSRect(origin: .zero, size: screen.frame.size))
@@ -102,8 +113,16 @@ final class MicOverlay {
     }
 
     /// Where the menu bar ends and where the Talkie icon sits, in the overlay's top-left coordinates.
+    ///
+    /// With a menu bar on every display, macOS moves the Talkie icon to whichever one you're using.
+    /// While the mic is out, its cord stays on the screen it dropped from; while it's put away, the
+    /// overlay follows you, so the next drop comes down where you are.
     private func updateGeometry() {
         guard let screen else { return }
+        if let iconScreen = statusButton?.window?.screen, Self.id(iconScreen) != Self.id(screen) {
+            if model.mic.mode == .hidden { rebuild(on: iconScreen) }
+            return
+        }
         let menuBar = max(screen.frame.maxY - screen.visibleFrame.maxY, 24)
         let bounds = CGRect(x: 0, y: menuBar, width: screen.frame.width, height: screen.frame.height - menuBar)
         if bounds != model.overlayBounds { model.overlayBounds = bounds }

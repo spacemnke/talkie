@@ -59,8 +59,22 @@ final class Line {
     private var talking = false
     /// People you muted for yourself.
     private var muted: Set<UUID> = []
+    /// Real levels for the meters: your microphone, and everyone you hear.
+    private let mine = LevelMeter()
+    private let heard = LevelMeter()
+    private var metering = false
 
     var isOpen: Bool { room != nil }
+
+    /// How loud you are right now, on the board's meter scale. Silent while you aren't talking.
+    var micLevel: Double { room != nil && talking ? mine.level : 0 }
+
+    /// How loud the people on the call are, as you hear them (people you muted don't count).
+    var heardLevel: Double {
+        guard let room else { return 0 }
+        let everyone = room.remoteParticipants.values.compactMap { $0.identity.flatMap { UUID(uuidString: $0.stringValue) } }
+        return everyone.allSatisfy(muted.contains) ? 0 : heard.level
+    }
 
     /// Everyone else in the room.
     var members: [Member] {
@@ -92,6 +106,11 @@ final class Line {
         // Your voice effect goes on the microphone before it's sent, from the microphone you picked.
         VoiceEffects.shared.install()
         useChosenDevices()
+        if !metering {
+            metering = true
+            AudioManager.shared.add(localAudioRenderer: mine)
+            AudioManager.shared.add(remoteAudioRenderer: heard)
+        }
         let room = Room(delegate: delegate)
         self.room = room
         self.delegate = delegate

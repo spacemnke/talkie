@@ -53,6 +53,8 @@ final class BoardModel {
     let sound = SoundBoard()
     /// The Settings window's input meter.
     @ObservationIgnored let inputLevel = InputLevel()
+    /// Your microphone while you hold to talk on the practice board (calls are measured through LiveKit).
+    @ObservationIgnored private let talkLevel = InputLevel()
     @ObservationIgnored var onFrame: (() -> Void)?
     /// The mic's settings key was pressed, at this point in the overlay.
     @ObservationIgnored var onMicMenu: ((CGPoint) -> Void)?
@@ -214,8 +216,16 @@ final class BoardModel {
 
         stepCords()
 
-        let mine = board.talking ? simulatedVoice(t, seed: 0) : 0
-        let theirs = board.flags.rx ? simulatedVoice(t, seed: 3.1) : 0
+        // Real levels: your microphone, and the people on the call. Practice friends are simulated,
+        // so their voices are too.
+        let mine: Double, theirs: Double
+        if let line = online?.line, line.isOpen {
+            mine = line.micLevel
+            theirs = line.heardLevel
+        } else {
+            mine = board.talking ? talkLevel.level : 0
+            theirs = practice && board.flags.rx ? simulatedVoice(t, seed: 3.1) : 0
+        }
         micLevel = eased(micLevel, toward: mine)
         friendLevel = eased(friendLevel, toward: theirs)
         let m = max(micLevel, friendLevel)
@@ -541,10 +551,13 @@ final class BoardModel {
         if board.openJacks.isEmpty, let jack = board.knockers.first { letIn(jack) }
         if !mic.isVisible || mic.mode == .retracting { dropMic() }
         apply { $0.startTalking(now: now) }
+        // Off a real call, the meter listens to your microphone only while you hold to talk.
+        if online?.line.isOpen != true { talkLevel.start(deviceUID: defaults.string(forKey: "inputDeviceUID")) }
     }
 
     func stopTalking() {
         apply { $0.stopTalking(now: now) }
+        talkLevel.stop()
     }
 
     func cycleEffect() { apply { $0.cycleEffect(now: now) } }

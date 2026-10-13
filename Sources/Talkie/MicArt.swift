@@ -83,9 +83,10 @@ enum MicArt {
             ctx.draw(Text(text).font(Fonts.jura(size, weight)).tracking(size * 0.06).foregroundStyle(color), at: p, anchor: anchor)
         }
 
-        // The cord between the name tag and the body.
+        // The cord between the name tag and the body. With nobody on the line there's no tag, so
+        // the cord runs all the way up to where the coil from the menu bar joins.
         var stub = Path()
-        stub.move(to: CGPoint(x: 66, y: 79))
+        stub.move(to: CGPoint(x: 66, y: s.tag.isEmpty ? cordExit.y : 79))
         stub.addLine(to: CGPoint(x: 66, y: 92))
         ctx.stroke(stub, with: .color(ink), style: StrokeStyle(lineWidth: 5, lineCap: .round))
         ctx.stroke(stub, with: .color(Palette.lampOff), style: StrokeStyle(lineWidth: 2.5, lineCap: .round))
