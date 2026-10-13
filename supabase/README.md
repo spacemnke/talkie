@@ -16,6 +16,15 @@ The project is **talkie** (`xakscsouugwlyefaieyl`, London). The app signs in ano
   anyone on the call is Pro, otherwise what's left of the call's ten minutes) and the line pass
   carries it as `limit_seconds`. Make someone Pro by hand:
   `update public.profiles set pro = true where code = 'TLK-XXXX';`
+- Payments (Lemon Squeezy): `functions/lemon-webhook/` takes Lemon Squeezy's subscription events,
+  checks their signature (`X-Signature`, HMAC-SHA256 with the secret `LEMON_SQUEEZY_WEBHOOK_SECRET`)
+  and calls `apply_subscription`, which keeps the subscription in the private `subscriptions` table
+  (no policies: the app can't see it) and sets the buyer's `pro` and `pro_until` from it. The buyer
+  is the account in the checkout's `custom_data.user_id`, which Talkie adds when it opens the
+  checkout. Pro given by hand (`pro` on, `pro_until` null) is left alone. Deployed with JWT
+  verification off; the signature is the check. A purchase with no account is kept with its email:
+  link it with `update public.subscriptions set person = '<id>' where id = '<subscription>';` and
+  then `select public.refresh_paid_pro('<id>');`.
 - Who's around: each Talkie checks in every 30 seconds (with its do-not-disturb state) and signs
   off on quit; friends hear check-ins live through Realtime, and 75 seconds of silence means away.
   Realtime Presence dropped or crashed too often on this project to rely on.
@@ -23,7 +32,7 @@ The project is **talkie** (`xakscsouugwlyefaieyl`, London). The app signs in ano
   `LIVEKIT_URL`, `LIVEKIT_API_KEY` and `LIVEKIT_API_SECRET` (Edge Functions → Secrets). Deployed with
   JWT verification off, because it checks the caller against Supabase Auth itself.
 
-Deploy the function with the CLI: `supabase functions deploy line-token --no-verify-jwt --project-ref xakscsouugwlyefaieyl`.
+Deploy the functions with the CLI: `supabase functions deploy line-token --no-verify-jwt --project-ref xakscsouugwlyefaieyl`, and the same for `lemon-webhook`.
 
 ## Checking it
 

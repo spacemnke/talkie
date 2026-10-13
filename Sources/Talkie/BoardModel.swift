@@ -14,6 +14,8 @@ final class BoardModel {
     private(set) var practice = false
     /// Talkie's operator (accounts, codes, knocks and the voice line). Nil on the practice board.
     @ObservationIgnored private(set) var online: Operator?
+    /// Your account on your real board, once the operator has answered. Nil on the practice board.
+    var account: UUID? { practice ? nil : online?.account }
 
     // Patch cords, in the board window's coordinates
     private(set) var cords: [CordID: CordSim] = Dictionary(uniqueKeysWithValues: CordID.allCases.map { ($0, CordSim()) })

@@ -34,6 +34,8 @@ final class Operator {
     private unowned let model: BoardModel
     private let client: SupabaseClient
     private var me: UUID?
+    /// Your account, once the operator has answered. Checkout tags purchases with it.
+    var account: UUID? { me }
     /// Friends' accounts by the local id the switchboard knows them by, and back again.
     private var accounts: [Int: UUID] = [:]
     private var localIDs: [UUID: Int] = [:]

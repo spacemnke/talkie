@@ -7,7 +7,7 @@ import TalkieCore
 struct ProView: View {
     let model: BoardModel
 
-    /// Payments aren't live yet: this is where they'll be.
+    /// Where Pro is explained, for when the store isn't set up.
     static let pricing = URL(string: "https://switchtalkie.com/#pricing")!
 
     var body: some View {
@@ -37,12 +37,9 @@ struct ProView: View {
                         .padding(.top, 14)
                 }
 
-                WideKey(title: plan == .pro ? "YOU HAVE PRO" : "GET PRO · \(Plan.monthly)/MONTH", width: 456) {
-                    NSWorkspace.shared.open(Self.pricing)
-                }
-                .disabled(plan == .pro)
-                .padding(.top, 18)
-                Caption(text: "PAYMENTS OPEN SOON · EVERYTHING ELSE WORKS ON FREE")
+                keys(plan)
+                    .padding(.top, 18)
+                Caption(text: note(plan))
                     .frame(maxWidth: .infinity)
                     .padding(.top, 12)
             }
@@ -50,6 +47,45 @@ struct ProView: View {
             .padding(EdgeInsets(top: 0, leading: 32, bottom: 22, trailing: 32))
             .frame(width: 520)
         }
+    }
+
+    /// Buy (monthly or yearly), manage what you have, or nothing to do on the practice board.
+    @ViewBuilder
+    private func keys(_ plan: Plan) -> some View {
+        if model.practice {
+            WideKey(title: "GET PRO FROM YOUR REAL BOARD", width: 456) {}
+                .disabled(true)
+        } else if plan == .pro {
+            WideKey(title: Checkout.manage == nil ? "YOU HAVE PRO" : "MANAGE YOUR SUBSCRIPTION", width: 456) {
+                if let manage = Checkout.manage { NSWorkspace.shared.open(manage) }
+            }
+            .disabled(Checkout.manage == nil)
+        } else if let monthly = Checkout.monthly, let yearly = Checkout.yearly {
+            let account = model.account
+            HStack(spacing: 10) {
+                WideKey(title: "\(Plan.monthly) A MONTH", width: 223) { buy(monthly) }
+                WideKey(title: "\(Plan.yearly) A YEAR", width: 223) { buy(yearly) }
+            }
+            .disabled(account == nil)
+        } else {
+            WideKey(title: "GET PRO · \(Plan.monthly)/MONTH", width: 456) {
+                NSWorkspace.shared.open(Self.pricing)
+            }
+        }
+    }
+
+    private func note(_ plan: Plan) -> String {
+        if model.practice { return "THE PRACTICE BOARD IS FOR TRYING · NOTHING IS CHARGED" }
+        if plan == .pro { return Checkout.manage == nil ? "THANKS FOR BEING ON PRO" : "RECEIPTS, CARD AND CANCELLING ARE WITH LEMON SQUEEZY" }
+        if Checkout.monthly == nil { return "PAYMENTS OPEN SOON · EVERYTHING ELSE WORKS ON FREE" }
+        if model.account == nil { return "WAITING FOR THE OPERATOR" }
+        return "A YEAR COMES TO $3 A MONTH · PRO SWITCHES ON BY ITSELF"
+    }
+
+    /// Opens the checkout in your browser, tagged with your account so Pro lands on your board.
+    private func buy(_ base: URL) {
+        guard let account = model.account else { return }
+        NSWorkspace.shared.open(Checkout.link(base, account: account, code: model.board.myCode))
     }
 }
 

@@ -15,7 +15,7 @@ launch, gets you a permanent code, keeps your board on the server, shows who's a
 carries knocks. When someone lets you in, LiveKit carries your voices, through your voice effect if
 you picked one. A practice board with simulated friends is in the menu bar menu.
 
-Not yet: payments (everyone is on Free until they open) and notarization.
+Not yet: taking real money (payments run in Lemon Squeezy's test mode) and notarization.
 
 ## Free and Pro
 
@@ -27,7 +27,7 @@ Not yet: payments (everyone is on Free until they open) and notarization.
 | Voice effects (Canyon, Tin can, Helium, Machine) | Try them on your own voice | On your calls; only your own voice changes |
 | Knock sounds | The standard knock | Pick one per friend (right-click their jack) |
 | Knocking, mic, do not disturb, private mute, buzz | Yes | Yes |
-| Price | Free | $4 a month or $36 a year (payments open after the beta) |
+| Price | Free | $4 a month or $36 a year, through Lemon Squeezy (test mode until launch) |
 
 The server decides: your plan, how many jacks you can fill and knock from, how many people fit on a
 call, and how long each line can last. The app shows locked jacks as **PRO**, counts down the last minute of a free call on the LCD,
