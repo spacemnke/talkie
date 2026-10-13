@@ -89,10 +89,16 @@ final class MicOverlay {
         screen.deviceDescription[NSDeviceDescriptionKey("NSScreenNumber")] as? NSNumber
     }
 
+    /// The screen whose menu bar the Talkie icon is in right now, going by where it actually is.
+    private var iconScreen: NSScreen? {
+        guard let f = statusButton?.window?.frame else { return nil }
+        return NSScreen.screens.first { $0.frame.contains(CGPoint(x: f.midX, y: f.midY)) }
+    }
+
     /// Puts the overlay on a screen: the one asked for, or the one whose menu bar has the Talkie icon.
     private func rebuild(on target: NSScreen? = nil) {
         panel?.orderOut(nil)
-        guard let screen = target ?? statusButton?.window?.screen ?? NSScreen.main ?? NSScreen.screens.first else { return }
+        guard let screen = target ?? iconScreen ?? NSScreen.main ?? NSScreen.screens.first else { return }
         self.screen = screen
         let p = OverlayPanel(screen: screen)
         let container = NSView(frame: NSRect(origin: .zero, size: screen.frame.size))
@@ -115,22 +121,29 @@ final class MicOverlay {
     /// Where the menu bar ends and where the Talkie icon sits, in the overlay's top-left coordinates.
     ///
     /// With a menu bar on every display, macOS moves the Talkie icon to whichever one you're using.
-    /// While the mic is out, its cord stays on the screen it dropped from; while it's put away, the
-    /// overlay follows you, so the next drop comes down where you are.
+    /// While the mic is out, its cord only follows the icon within the menu bar of the screen the
+    /// mic is on, so it stays where it came down from. While the mic is put away, the overlay moves
+    /// to the screen the icon is on, so the next drop comes down where you are. Decided from where
+    /// the icon actually is, not from which screen macOS says its window belongs to.
     private func updateGeometry() {
         guard let screen else { return }
-        if let iconScreen = statusButton?.window?.screen, Self.id(iconScreen) != Self.id(screen) {
-            if model.mic.mode == .hidden { rebuild(on: iconScreen) }
-            return
-        }
         let menuBar = max(screen.frame.maxY - screen.visibleFrame.maxY, 24)
         let bounds = CGRect(x: 0, y: menuBar, width: screen.frame.width, height: screen.frame.height - menuBar)
         if bounds != model.overlayBounds { model.overlayBounds = bounds }
-        if let window = statusButton?.window {
-            let f = window.frame
-            let anchor = CGPoint(x: f.midX - screen.frame.minX, y: screen.frame.maxY - f.minY - 3)
-            if anchor.distance(to: model.anchor) > 0.5 { model.anchor = anchor }
+        guard let window = statusButton?.window else { return }
+        let f = window.frame
+        let icon = CGPoint(x: f.midX, y: f.midY)
+        // This screen's menu bar, a little generous at the top edge.
+        let ourMenuBar = CGRect(x: screen.frame.minX, y: screen.frame.maxY - menuBar - 4,
+                                width: screen.frame.width, height: menuBar + 8)
+        guard ourMenuBar.contains(icon) else {
+            if model.mic.mode == .hidden, let there = iconScreen, Self.id(there) != Self.id(screen) {
+                rebuild(on: there)
+            }
+            return
         }
+        let anchor = CGPoint(x: f.midX - screen.frame.minX, y: screen.frame.maxY - f.minY - 3)
+        if anchor.distance(to: model.anchor) > 0.5 { model.anchor = anchor }
     }
 
     /// Opens a menu from the mic, at a point in the overlay's top-left coordinates.
