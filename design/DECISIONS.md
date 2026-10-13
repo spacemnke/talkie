@@ -41,7 +41,7 @@ a patch cord into their jack. They hear a knock; when they let you in, the line 
 ## Still open
 
 - **Hear yourself live?** The Voice Effects window plays a recording back, which avoids feedback. Live monitoring would need headphones.
-- **Taking real money.** Payments run in test mode; the Talkie store needs Lemon Squeezy's activation before it can sell. A purchase made without Talkie (from the website, with no account on it) is kept with the buyer's email to link by hand.
+- **Taking real money.** Payments are tested end to end in test mode (13 Oct) and switched off in the app (`Checkout.isOpen`) so the test card can't hand out Pro. To open: activate the store, copy the product to live mode, add a live webhook (and its secret in Supabase), put the live links in `Checkout.swift` and turn `isOpen` on. After notarization. A purchase made without Talkie (from the website, with no account on it) is kept with the buyer's email to link by hand.
 - **Enforcing call length on the server.** The server sets the limit; the app ends the call. A server-side cut-off (removing both people from the LiveKit room) can come with payments.
 - **iPhone?** iOS has Apple's Push to Talk framework. Mac first either way.
 
