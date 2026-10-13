@@ -23,7 +23,15 @@ public enum Loudness {
     }
 
     public static func meter(rms: Float) -> Double {
-        let decibels = 20 * log10(max(Double(rms), 0.000_01))
+        meter(decibels: 20 * log10(max(Double(rms), 0.000_01)))
+    }
+
+    /// The same from a level already in decibels (0 is full scale), as macOS's capture meters give it.
+    public static func meter(decibels: Double) -> Double {
+        guard decibels.isFinite else { return 0 }
         return min(max((decibels + 55) / 50, 0), 1)
     }
+
+    /// Below this, a microphone is sending pure digital silence: real ones always hiss a little.
+    public static let silence: Double = -100
 }

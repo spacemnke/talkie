@@ -9,6 +9,12 @@ final class LoudnessTests: XCTestCase {
         XCTAssertEqual(Loudness.meter(rms: Float(pow(10.0, -25.0 / 20))), 0.6, accuracy: 0.001)
     }
 
+    func testDecibelsGiveTheSameReading() {
+        XCTAssertEqual(Loudness.meter(decibels: -25), 0.6, accuracy: 0.001)
+        XCTAssertEqual(Loudness.meter(decibels: -.infinity), 0)
+        XCTAssertEqual(Loudness.meter(decibels: 3), 1)
+    }
+
     func testFloatAndSixteenBitAgree() {
         let floats: [Float] = (0..<480).map { 0.3 * sin(Float($0) / 10) }
         let ints: [Int16] = floats.map { Int16($0 * 32768) }

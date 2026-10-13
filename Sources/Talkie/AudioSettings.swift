@@ -1,6 +1,5 @@
 import AppKit
 import AVFoundation
-import AudioToolbox
 import CoreAudio
 import Observation
 import TalkieCore
@@ -65,30 +64,40 @@ enum AudioDevices {
     }
 }
 
-/// The live input level for the settings meter, from the microphone you picked (the Mac's default
-/// if it's gone). Runs while Settings is open; keeps trying until microphone access is given, and
-/// says why when it can't hear anything.
+/// The live input level for the Settings meter (and your level while you hold to talk on the
+/// practice board), from the microphone picked in Settings, or the Mac's default if it's gone.
+///
+/// Listens through AVCaptureSession, which opens exactly the microphone asked for and meters it
+/// itself. (An AVAudioEngine pointed at one microphone while the Mac plays through another can
+/// hear nothing at all.) Keeps trying until microphone access is given, and says why when it
+/// can't hear anything.
 @MainActor
 @Observable
 final class InputLevel {
     private(set) var level: Double = 0
     /// Why the meter isn't moving, when we know.
     private(set) var problem: String?
-    @ObservationIgnored private var engine: AVAudioEngine?
+    @ObservationIgnored private var session: AVCaptureSession?
+    @ObservationIgnored private var output: AVCaptureAudioDataOutput?
     @ObservationIgnored private var timer: Timer?
+    @ObservationIgnored private var ticks = 0
     @ObservationIgnored private var deviceUID: String?
+    @ObservationIgnored private var deviceName = ""
     @ObservationIgnored private var asking = false
     /// When the microphone last sent anything other than pure silence.
     @ObservationIgnored private var lastSignal = Date()
+    @ObservationIgnored private let sink = CaptureSink()
+    @ObservationIgnored private let queue = DispatchQueue(label: "talkie.input-level")
 
     /// Start listening (or switch to another microphone).
     func start(deviceUID: String?) {
         self.deviceUID = deviceUID
-        stopEngine()
+        stopSession()
         attempt()
         if timer == nil {
-            let timer = Timer(timeInterval: 1, repeats: true) { [weak self] _ in
-                MainActor.assumeIsolated { self?.check() }
+            // Twenty readings a second for the bars; a retry once a second if it isn't running.
+            let timer = Timer(timeInterval: 0.05, repeats: true) { [weak self] _ in
+                MainActor.assumeIsolated { self?.poll() }
             }
             RunLoop.main.add(timer, forMode: .common)
             self.timer = timer
@@ -98,27 +107,32 @@ final class InputLevel {
     func stop() {
         timer?.invalidate()
         timer = nil
-        stopEngine()
+        stopSession()
         level = 0
         problem = nil
     }
 
-    private func stopEngine() {
-        engine?.inputNode.removeTap(onBus: 0)
-        engine?.stop()
-        engine = nil
+    private func stopSession() {
+        guard let session else { return }
+        self.session = nil
+        output = nil
+        queue.async { session.stopRunning() }
     }
 
-    /// Once a second: try again if it isn't running, and notice a microphone sending nothing at all.
-    private func check() {
-        guard engine != nil else {
-            attempt()
+    private func poll() {
+        ticks += 1
+        guard let output else {
+            if ticks % 20 == 0 { attempt() }
             return
         }
-        // Real microphones always pick up a little noise; exact zeros mean nothing is coming through.
-        if Date().timeIntervalSince(lastSignal) > 3 {
-            problem = "NO SOUND FROM THIS MICROPHONE"
-            level = 0
+        let decibels = output.connections.flatMap(\.audioChannels).map { Double($0.averagePowerLevel) }.max() ?? -.infinity
+        level = Loudness.meter(decibels: decibels)
+        if decibels > Loudness.silence {
+            lastSignal = Date()
+            if problem != nil { problem = nil }
+        } else if Date().timeIntervalSince(lastSignal) > 3 {
+            // Real microphones always pick up a little noise; nothing at all means nothing is coming through.
+            problem = "NO SOUND FROM \(deviceName)"
         }
     }
 
@@ -140,53 +154,35 @@ final class InputLevel {
         case .granted:
             break
         }
-        let engine = AVAudioEngine()
-        let input = engine.inputNode
-        // The microphone you picked, if it's plugged in; otherwise the Mac's default.
-        if let uid = deviceUID, let device = AudioDevices.all(input: true).first(where: { $0.uid == uid }),
-           let unit = input.audioUnit {
-            var id = device.id
-            AudioUnitSetProperty(unit, kAudioOutputUnitProperty_CurrentDevice, kAudioUnitScope_Global, 0,
-                                 &id, UInt32(MemoryLayout<AudioDeviceID>.size))
-        }
-        let format = input.outputFormat(forBus: 0)
-        guard format.sampleRate > 0, format.channelCount > 0 else {
+        // The microphone you picked (Core Audio's id is the capture device's id), else the default.
+        guard let device = deviceUID.flatMap({ AVCaptureDevice(uniqueID: $0) }) ?? AVCaptureDevice.default(for: .audio) else {
             problem = "NO MICROPHONE FOUND"
             return
         }
-        input.installTap(onBus: 0, bufferSize: 1024, format: format) { [weak self] buffer, _ in
-            guard let channels = buffer.floatChannelData else { return }
-            let count = Int(buffer.frameLength)
-            // The loudest channel: some microphones only send on one side.
-            var loudest: Float = 0
-            var signal = false
-            for c in 0..<Int(buffer.format.channelCount) {
-                let samples = UnsafeBufferPointer(start: channels[c], count: count)
-                if !signal, samples.contains(where: { $0 != 0 }) { signal = true }
-                loudest = max(loudest, Loudness.rms(samples))
-            }
-            let value = Loudness.meter(rms: loudest)
-            Task { @MainActor in self?.heard(value, signal: signal) }
-        }
+        let session = AVCaptureSession()
+        let output = AVCaptureAudioDataOutput()
         do {
-            try engine.start()
-            self.engine = engine
-            lastSignal = Date()
-            problem = nil
+            let input = try AVCaptureDeviceInput(device: device)
+            guard session.canAddInput(input), session.canAddOutput(output) else { throw CocoaError(.featureUnsupported) }
+            session.addInput(input)
+            output.setSampleBufferDelegate(sink, queue: queue)
+            session.addOutput(output)
         } catch {
-            input.removeTap(onBus: 0)
-            problem = "THE MICROPHONE DIDN'T START"
+            problem = "\(device.localizedName.uppercased()) DIDN'T START"
+            return
         }
+        self.session = session
+        self.output = output
+        deviceName = device.localizedName.uppercased()
+        lastSignal = Date()
+        problem = nil
+        queue.async { session.startRunning() }
     }
+}
 
-    private func heard(_ value: Double, signal: Bool) {
-        guard engine != nil else { return }
-        level = value
-        if signal {
-            lastSignal = Date()
-            if problem != nil { problem = nil }
-        }
-    }
+/// Takes the captured audio so it keeps flowing; the meter reads the session's own levels.
+private final class CaptureSink: NSObject, AVCaptureAudioDataOutputSampleBufferDelegate, @unchecked Sendable {
+    func captureOutput(_ output: AVCaptureOutput, didOutput sampleBuffer: CMSampleBuffer, from connection: AVCaptureConnection) {}
 }
 
 /// Where microphone access stands.
