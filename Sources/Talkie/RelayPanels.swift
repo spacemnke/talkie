@@ -186,7 +186,6 @@ struct SettingsView: View {
     @State private var outputs: [AudioDevice] = []
     @AppStorage("inputDeviceUID") private var inputUID = ""
     @AppStorage("outputDeviceUID") private var outputUID = ""
-    @State private var level = InputLevel()
     @State private var openAtLogin = SMAppService.mainApp.status == .enabled
     @State private var loginProblem: String?
 
@@ -204,7 +203,15 @@ struct SettingsView: View {
                     Text("AUDIO").font(Fonts.jura(11, "SemiBold")).tracking(1.2)
                     row("MICROPHONE") { DevicePicker(devices: inputs, selection: $inputUID) }
                     row("OUTPUT") { DevicePicker(devices: outputs, selection: $outputUID) }
-                    row("INPUT LEVEL") { LevelBars(level: level.level) }
+                    row("INPUT LEVEL") { LevelBars(level: model.inputLevel.level) }
+                    // Always one line, so the window keeps its size.
+                    row("") {
+                        Text(model.inputLevel.problem ?? " ")
+                            .font(Fonts.jura(8.5, "SemiBold"))
+                            .tracking(1.2)
+                            .foregroundStyle(Palette.orange)
+                            .frame(height: 10)
+                    }
                 }
                 .padding(20)
                 .insetPanel(radius: 14)
@@ -293,9 +300,13 @@ struct SettingsView: View {
             outputs = AudioDevices.all(input: false)
             if inputUID.isEmpty { inputUID = AudioDevices.defaultUID(input: true) ?? "" }
             if outputUID.isEmpty { outputUID = AudioDevices.defaultUID(input: false) ?? "" }
-            level.start()
         }
-        .onDisappear { level.stop() }
+        // The meter itself starts and stops with the window (see AppDelegate.showSettings).
+        .onChange(of: inputUID) { _, uid in
+            model.inputLevel.start(deviceUID: uid)
+            model.audioDevicesChanged()
+        }
+        .onChange(of: outputUID) { _, _ in model.audioDevicesChanged() }
     }
 
     private func row<Control: View>(_ label: String, @ViewBuilder _ control: () -> Control) -> some View {

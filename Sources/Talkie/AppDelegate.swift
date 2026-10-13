@@ -182,8 +182,13 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         if settingsWindow == nil {
             let window = makeDeviceWindow(title: "Settings", content: SettingsView(model: model))
             window.center()
+            // The input meter only listens while Settings is open.
+            window.onClose = { [weak self] in
+                MainActor.assumeIsolated { self?.model.inputLevel.stop() }
+            }
             settingsWindow = window
         }
+        model.inputLevel.start(deviceUID: UserDefaults.standard.string(forKey: "inputDeviceUID"))
         settingsWindow?.makeKeyAndOrderFront(nil)
         NSApp.activate()
     }

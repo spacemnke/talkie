@@ -89,8 +89,9 @@ final class Line {
         let delegate = LineDelegate { [weak self] event in
             Task { @MainActor in self?.handle(event, generation: gen) }
         }
-        // Your voice effect goes on the microphone before it's sent.
+        // Your voice effect goes on the microphone before it's sent, from the microphone you picked.
         VoiceEffects.shared.install()
+        useChosenDevices()
         let room = Room(delegate: delegate)
         self.room = room
         self.delegate = delegate
@@ -119,6 +120,25 @@ final class Line {
         delegate = nil
         roomName = nil
         await room.disconnect()
+    }
+
+    /// The microphone and speaker picked in Settings, if they're plugged in; otherwise the Mac's
+    /// defaults. Matched by Core Audio's device id, then by name.
+    func useChosenDevices() {
+        let defaults = UserDefaults.standard
+        let audio = AudioManager.shared
+        if let uid = defaults.string(forKey: "inputDeviceUID"), !uid.isEmpty {
+            let name = AudioDevices.all(input: true).first { $0.uid == uid }?.name
+            if let device = audio.inputDevices.first(where: { $0.deviceId == uid || $0.name == name }) {
+                audio.inputDevice = device
+            }
+        }
+        if let uid = defaults.string(forKey: "outputDeviceUID"), !uid.isEmpty {
+            let name = AudioDevices.all(input: false).first { $0.uid == uid }?.name
+            if let device = audio.outputDevices.first(where: { $0.deviceId == uid || $0.name == name }) {
+                audio.outputDevice = device
+            }
+        }
     }
 
     /// Hold to talk: the microphone goes live only while this is on.

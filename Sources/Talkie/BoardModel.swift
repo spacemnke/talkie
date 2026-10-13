@@ -51,6 +51,8 @@ final class BoardModel {
     let myName = BoardModel.cardName()
 
     let sound = SoundBoard()
+    /// The Settings window's input meter.
+    @ObservationIgnored let inputLevel = InputLevel()
     @ObservationIgnored var onFrame: (() -> Void)?
     /// The mic's settings key was pressed, at this point in the overlay.
     @ObservationIgnored var onMicMenu: ((CGPoint) -> Void)?
@@ -558,6 +560,11 @@ final class BoardModel {
         sound.play(.buzz)
         let name = board.friend(jack)?.name ?? "BUZZ"
         apply { $0.say(name, "BUZZED YOU", now: now, for: 1.7); return [] }
+    }
+
+    /// You picked another microphone or speaker in Settings: an open call switches over.
+    func audioDevicesChanged() {
+        online?.line.useChosenDevices()
     }
 
     /// Someone on the call who isn't on your board buzzed.
