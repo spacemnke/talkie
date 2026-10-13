@@ -34,6 +34,11 @@ install_name_tool -add_rpath "@executable_path/../Frameworks" "$APP/Contents/Mac
 ls "$APP/Contents/Frameworks"
 
 codesign --force --deep --sign - "$APP"
+# Test builds are signed ad hoc, so by default macOS knows each one only by its exact hash and
+# forgets microphone access with every new build. Naming the app by its bundle id instead keeps
+# the permission from one test build to the next (a Developer ID signature replaces this later).
+codesign --force --sign - --requirements '=designated => identifier "com.spacemnke.talkie"' "$APP"
+codesign --display --requirements - "$APP"
 
 # Open it once: if a framework is missing, dyld stops it here instead of on your Mac.
 TALKIE_SMOKE_TEST=1 "$APP/Contents/MacOS/Talkie" &
