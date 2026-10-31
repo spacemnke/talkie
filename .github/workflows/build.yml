@@ -21,7 +21,8 @@ jobs:
 
   mac:
     runs-on: macos-15
-    timeout-minutes: 30
+    # Notarization waits on Apple, usually a few minutes per file.
+    timeout-minutes: 45
     steps:
       - uses: actions/checkout@v4
 
@@ -36,10 +37,44 @@ jobs:
       - name: Test
         run: swift test
 
+      # The Developer ID certificate (a base64 .p12 in the repository's secrets) goes into a
+      # throwaway keychain for this run. Without it, the build is signed ad hoc as before.
+      - name: Signing identity
+        if: github.event_name != 'pull_request'
+        env:
+          DEVELOPER_ID_P12: ${{ secrets.DEVELOPER_ID_P12 }}
+          DEVELOPER_ID_P12_PASSWORD: ${{ secrets.DEVELOPER_ID_P12_PASSWORD }}
+        run: |
+          if [ -z "$DEVELOPER_ID_P12" ]; then
+            echo "::warning::No DEVELOPER_ID_P12 secret, so this build isn't signed with Developer ID or notarized."
+            exit 0
+          fi
+          KEYCHAIN="$RUNNER_TEMP/signing.keychain-db"
+          KEYCHAIN_PASSWORD="$(uuidgen)"
+          security create-keychain -p "$KEYCHAIN_PASSWORD" "$KEYCHAIN"
+          security set-keychain-settings -lut 21600 "$KEYCHAIN"
+          security unlock-keychain -p "$KEYCHAIN_PASSWORD" "$KEYCHAIN"
+          echo "$DEVELOPER_ID_P12" | base64 --decode > "$RUNNER_TEMP/developer-id.p12"
+          security import "$RUNNER_TEMP/developer-id.p12" -k "$KEYCHAIN" -P "$DEVELOPER_ID_P12_PASSWORD" -f pkcs12 -T /usr/bin/codesign
+          rm "$RUNNER_TEMP/developer-id.p12"
+          security set-key-partition-list -S apple-tool:,apple:,codesign: -s -k "$KEYCHAIN_PASSWORD" "$KEYCHAIN" > /dev/null
+          security list-keychains -d user -s "$KEYCHAIN" $(security list-keychains -d user | tr -d '"')
+          IDENTITY=$(security find-identity -v -p codesigning "$KEYCHAIN" | sed -n 's/.*"\(Developer ID Application: [^"]*\)".*/\1/p' | head -1)
+          if [ -z "$IDENTITY" ]; then
+            echo "::error::The .p12 has no Developer ID Application certificate."
+            exit 1
+          fi
+          echo "Signing as $IDENTITY"
+          echo "DEVELOPER_ID=$IDENTITY" >> "$GITHUB_ENV"
+
       - name: Package Talkie.app and Talkie.dmg
         env:
           # Every build is numbered, so Talkie's updater can tell which is newer.
           TALKIE_BUILD: ${{ github.run_number }}
+          # Notarization, with the same Apple ID, team and app-specific password as DiscordDeck.
+          APPLE_ID: ${{ secrets.APPLE_ID }}
+          APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
+          APPLE_APP_PASSWORD: ${{ secrets.APPLE_APP_PASSWORD }}
         run: scripts/bundle.sh release
 
       # The update feed Talkie checks: this build, signed with the key in the repository's secrets.
@@ -73,8 +108,13 @@ jobs:
           # The disk image for people, and the zip and feed for Talkie's updater.
           assets=(build/Talkie.dmg build/Talkie.zip)
           if [ -f build/appcast.xml ]; then assets+=(build/appcast.xml); fi
+          if [ -f build/notarized ]; then
+            notes="Built from ${GITHUB_REF_NAME} at ${GITHUB_SHA::7}. Signed with Developer ID and notarized by Apple."
+          else
+            notes="Built from ${GITHUB_REF_NAME} at ${GITHUB_SHA::7}. Not notarized yet: the first time, open System Settings → Privacy & Security and click Open Anyway."
+          fi
           gh release create latest "${assets[@]}" \
             --prerelease \
             --target "$GITHUB_SHA" \
             --title "Talkie (latest build)" \
-            --notes "Built from ${GITHUB_REF_NAME} at ${GITHUB_SHA::7}. Not notarized yet: the first time, open System Settings → Privacy & Security and click Open Anyway."
+            --notes "$notes"

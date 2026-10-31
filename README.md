@@ -81,6 +81,24 @@ in `Support/Info.plist`, the private half is the `SPARKLE_PRIVATE_KEY` Actions s
 `scripts/appcast.mjs` signs each build with it. Without the secret, builds still publish but carry
 no feed, so nobody is offered them.
 
+## Signing and notarization
+
+With these Actions secrets, every build on GitHub is signed with Developer ID (hardened runtime,
+`Support/Talkie.entitlements` for the microphone), notarized by Apple and stapled, both the app
+and the disk image. They're the same Apple Developer team and kind of login as DiscordDeck's
+`scripts/notarize.sh`:
+
+| Secret | What it is |
+| --- | --- |
+| `DEVELOPER_ID_P12` | The "Developer ID Application" certificate with its private key, exported from Keychain Access as a .p12, base64 (`base64 -i Talkie.p12 \| pbcopy`) |
+| `DEVELOPER_ID_P12_PASSWORD` | The password chosen when exporting it |
+| `APPLE_ID` | The Apple ID email of the developer account |
+| `APPLE_TEAM_ID` | The 10-character team ID, the code in brackets in the certificate's name |
+| `APPLE_APP_PASSWORD` | An app-specific password from account.apple.com |
+
+Without them, builds are signed ad hoc as before. On your own Mac, `DEVELOPER_ID="Developer ID
+Application: …" NOTARY_PROFILE=<a notarytool profile> scripts/bundle.sh` does the same.
+
 ## Try it
 
 - The first launch walks you through three welcome steps, including microphone access.
