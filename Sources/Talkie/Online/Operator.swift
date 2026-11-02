@@ -479,10 +479,7 @@ final class Operator {
                     "line-token",
                     options: FunctionInvokeOptions(body: ["knock_id": knockID.uuidString.lowercased()])
                 )
-                // The server knows everyone's plan: a free call's time left, or no limit.
-                if let limit = pass.limit, let jack = jack(of: peer) {
-                    model.apply { $0.setCallLimit(jack, limit); return [] }
-                }
+                // Talkie is free: calls have no time limit, whatever the pass says.
                 try await line.join(pass, muted: mutedAccounts())
                 // The line may have closed on the board meanwhile.
                 if let jack = jack(of: peer), !model.board.isLineOpen(jack) {

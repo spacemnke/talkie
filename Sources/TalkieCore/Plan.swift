@@ -1,12 +1,15 @@
 import Foundation
 
-/// Free or Pro.
+/// How much of the board you get.
 ///
-/// Free: three jacks, calls of up to ten minutes (no limit when the other person has Pro), your own
-/// voice, and the standard knock. Pro: all eight jacks, no time limit, voice effects, and a knock
-/// sound of your choosing for each friend.
+/// Talkie is free, and everyone gets `everything`: all eight jacks, calls of five, no time limit,
+/// voice effects and a knock sound per friend (decided 2 Nov). The smaller `free` board is kept
+/// only so the rules for limits stay tested; neither app shows plans any more.
 public enum Plan: String, CaseIterable, Sendable {
     case free, pro
+
+    /// The whole board, which is what everyone has.
+    public static let everything = Plan.pro
 
     /// How many jacks on the board you can use.
     public var jacks: Int { self == .free ? 3 : 8 }

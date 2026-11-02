@@ -5,7 +5,7 @@ import TalkieCore
 /// friends from the Mac's practice board, never the network.
 enum Demo {
     static func board(_ scene: String, now: TimeInterval) -> Switchboard {
-        var b = Switchboard(friends: Friend.samples, myCode: "TLK-LJDF", simulated: true, plan: scene == "free" ? .free : .pro)
+        var b = Switchboard(friends: Friend.samples, myCode: "TLK-LJDF", simulated: true, plan: .everything)
         switch scene {
         case "knock":
             _ = b.friendKnocks(0, now: now)
@@ -16,7 +16,7 @@ enum Demo {
         case "add":
             _ = b.startAdding(at: nil)
         case "empty", "welcome":
-            b = Switchboard(friends: Array(repeating: nil, count: 8), myCode: "TLK-LJDF", simulated: true, plan: .free)
+            b = Switchboard(friends: Array(repeating: nil, count: 8), myCode: "TLK-LJDF", simulated: true, plan: .everything)
         default:
             break
         }

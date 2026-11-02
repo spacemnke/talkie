@@ -2,7 +2,7 @@ import SwiftUI
 import TalkieCore
 
 /// One account on your Mac and iPhone: type the code Talkie on the Mac shows (Link iPhone…), and
-/// this iPhone gets the same code, friends and plan. Friends' knocks ring on both; answer on either.
+/// this iPhone gets the same code and friends. Friends' knocks ring on both; answer on either.
 struct LinkSheet: View {
     let model: PhoneModel
     @Environment(\.dismiss) private var dismiss
@@ -15,7 +15,7 @@ struct LinkSheet: View {
                 .font(Fonts.jura(24, "Light"))
                 .tracking(0.6)
                 .padding(.top, 22)
-            Text("Use the same code, friends and plan as Talkie on your Mac. Friends' knocks ring on both, and you answer on either.")
+            Text("Use the same code and friends as Talkie on your Mac. Friends' knocks ring on both, and you answer on either.")
                 .font(.system(size: 15))
                 .foregroundStyle(Palette.mute)
                 .fixedSize(horizontal: false, vertical: true)

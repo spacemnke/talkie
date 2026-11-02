@@ -78,7 +78,7 @@ private struct IdentityPanel: View {
                 Text("TALKIE")
                     .font(Fonts.jura(34, "Light"))
                     .tracking(1)
-                Text("PATCH INTERCOM · \(model.board.plan.title)")
+                Text("PATCH INTERCOM")
                     .font(Fonts.jura(10, "SemiBold"))
                     .tracking(1.6)
                     .foregroundStyle(Palette.mute)
@@ -307,7 +307,7 @@ private struct LCDPanel: View {
 
 private struct FlagRow: View {
     let flags: Flags
-    /// Cords C and D get flags on Pro.
+    /// One flag for each cord on the deck.
     var cords = 2
 
     var body: some View {
@@ -373,8 +373,6 @@ private struct SocketPanel: View {
     var body: some View {
         let friend = model.board.friend(index)
         let arriving = model.arriving == index
-        // Past the first three on Free: the friend there stays, but the jack waits for Pro.
-        let locked = model.board.isLocked(index)
         // While you add a friend, the jack they'll go on lights up.
         let target = model.isAdding && model.board.addingJack == index
         let shape = RoundedRectangle(cornerRadius: Radius.inset, style: .continuous)
@@ -393,67 +391,51 @@ private struct SocketPanel: View {
                 .padding(.horizontal, 10)
                 .padding(.top, 8)
 
-                Text(friend?.name ?? (locked ? "PRO" : "+ ADD"))
+                Text(friend?.name ?? "+ ADD")
                     .font(Fonts.jura(13, "Medium"))
                     .tracking(1)
                     .lineLimit(1)
                     .minimumScaleFactor(0.7)
-                    .foregroundStyle(target ? Palette.orange : locked ? Palette.away : nameColor(friend))
+                    .foregroundStyle(target ? Palette.orange : nameColor(friend))
                     .frame(height: 16)
                     .padding(.horizontal, 8)
                     .padding(.top, 7)
 
-                SocketHole(near: (model.nearJack == index && !locked) || target, free: friend == nil && !locked, locked: locked)
+                SocketHole(near: model.nearJack == index || target, free: friend == nil, locked: false)
                     .background(GeometryReader { g in
                         Color.clear.preference(key: HoleKey.self, value: [index: g.frame(in: .named(BoardSpace.name)).center])
                     })
                     .padding(.top, 9)
 
-                Group {
-                    if locked {
-                        Text("PRO JACK")
-                            .font(Fonts.jura(8, "SemiBold"))
-                            .tracking(0.8)
-                            .foregroundStyle(Palette.mute)
-                    } else {
-                        PresenceTag(friend: friend)
-                    }
-                }
+                PresenceTag(friend: friend)
                 .frame(height: 10)
                 .padding(.top, 1)
                 Spacer(minLength: 0)
             }
             .frame(width: 112, height: 119)
-            .background(shape.fill(arriving ? Palette.orangeGlow : locked ? Palette.plate : Palette.paper))
+            .background(shape.fill(arriving ? Palette.orangeGlow : Palette.paper))
             .overlay(shape.strokeBorder(Palette.ink, lineWidth: 1))
             .contentShape(shape)
         }
         .buttonStyle(.plain)
         .contextMenu {
             if let friend {
-                if model.board.plan.hasKnockSounds {
-                    Menu("Knock Sound") {
-                        let current = model.knockSounds[friend.id] ?? .standard
-                        ForEach(KnockSound.allCases, id: \.self) { knock in
-                            Toggle(knock.title, isOn: Binding(get: { current == knock }, set: { _ in
-                                model.setKnockSound(knock, for: index)
-                            }))
-                        }
+                Menu("Knock Sound") {
+                    let current = model.knockSounds[friend.id] ?? .standard
+                    ForEach(KnockSound.allCases, id: \.self) { knock in
+                        Toggle(knock.title, isOn: Binding(get: { current == knock }, set: { _ in
+                            model.setKnockSound(knock, for: index)
+                        }))
                     }
-                } else {
-                    Button("Knock Sounds (Pro)…") { model.onShowPro?() }
                 }
                 Divider()
                 Button("Eject \(friend.name.capitalized) from the Board") { model.eject(index) }
-            } else if locked {
-                Button("Unlock with Pro…") { model.onShowPro?() }
             } else {
                 Button("Add a Friend Here") { model.startAdding(at: index) }
             }
         }
-        .accessibilityLabel(accessibilityText(friend) + (locked ? ", Pro jack" : ""))
-        .accessibilityHint(locked ? "Comes with Pro."
-            : friend == nil ? "Adds a friend here: type their code."
+        .accessibilityLabel(accessibilityText(friend))
+        .accessibilityHint(friend == nil ? "Adds a friend here: type their code."
             : model.board.knocks[index] != nil ? "Lets them in." : "Knocks with the next free cord, or pulls it out.")
         .accessibilityActions {
             if friend != nil {
@@ -608,15 +590,15 @@ private struct Deck: View {
     }
 }
 
-/// The dark well the cords live in: one cord for each person you can bring onto a call (two on
-/// Free, four on Pro). Each dock reports its centre so the plug knows where home is.
+/// The dark well the cords live in: one cord for each person you can bring onto a call. Each dock
+/// reports its centre so the plug knows where home is.
 private struct CordWell: View {
     let model: BoardModel
 
     var body: some View {
         HStack(spacing: 0) {
             ForEach(CordID.allCases, id: \.self) { cord in
-                dock(cord, locked: model.board.isCordLocked(cord)).frame(width: 41)
+                dock(cord).frame(width: 41)
             }
             Spacer(minLength: 0)
         }
@@ -626,25 +608,23 @@ private struct CordWell: View {
         .insetPanel(Palette.key, radius: 9)
     }
 
-    private func dock(_ cord: CordID, locked: Bool) -> some View {
+    private func dock(_ cord: CordID) -> some View {
         VStack(spacing: 8) {
             Circle()
                 .fill(Palette.lcd)
-                .overlay(Circle().strokeBorder(Palette.mute, style: StrokeStyle(lineWidth: 1.5, dash: locked ? [3, 3] : [])))
+                .overlay(Circle().strokeBorder(Palette.mute, lineWidth: 1.5))
                 .frame(width: 34, height: 34)
                 .background(GeometryReader { g in
                     Color.clear.preference(key: DockKey.self, value: [cord: g.frame(in: .named(BoardSpace.name)).center])
                 })
-            Text(locked ? "PRO" : "CORD \(cord.label)")
+            Text("CORD \(cord.label)")
                 .font(Fonts.jura(7.5, "SemiBold"))
                 .tracking(0.5)
-                .foregroundStyle(locked ? Palette.orange : Palette.shell)
+                .foregroundStyle(Palette.shell)
                 .fixedSize()
         }
-        .contentShape(Rectangle())
-        .onTapGesture { if locked { model.onShowPro?() } }
         .accessibilityElement(children: .ignore)
-        .accessibilityLabel(locked ? "Cord \(cord.label), comes with Pro" : "Cord \(cord.label)")
+        .accessibilityLabel("Cord \(cord.label)")
     }
 }
 

@@ -2,7 +2,7 @@ import SwiftUI
 import TalkieCore
 
 /// One account on your Mac and iPhone: a code for Talkie on the iPhone to type (on its first
-/// screen, or from Add a Friend), after which it has this Mac's code, friends and plan.
+/// screen, or from Add a Friend), after which it has this Mac's code and friends.
 struct LinkView: View {
     let model: BoardModel
     @State private var code: String?
@@ -16,7 +16,7 @@ struct LinkView: View {
                     .font(Fonts.jura(20, "Light"))
                     .tracking(0.6)
                     .padding(.top, 24)
-                Text("Your iPhone gets this Mac's code, friends and plan. Friends' knocks ring on both, and you answer on either.")
+                Text("Your iPhone gets this Mac's code and friends. Friends' knocks ring on both, and you answer on either.")
                     .font(Fonts.jura(11, "Regular"))
                     .foregroundStyle(Palette.mute)
                     .lineSpacing(3)

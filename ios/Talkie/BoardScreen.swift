@@ -49,7 +49,7 @@ private struct Nameplate: View {
                 Text("TALKIE")
                     .font(Fonts.jura(26, "Light"))
                     .tracking(0.6)
-                Text("PATCH INTERCOM · \(model.board.plan.title.uppercased())")
+                Text("PATCH INTERCOM")
                     .font(Fonts.jura(9.5, "SemiBold"))
                     .tracking(1.6)
                     .foregroundStyle(Palette.orangeInk)
@@ -129,10 +129,8 @@ private struct DisplayPanel: View {
                     HStack(spacing: 11) {
                         flag("A", flags.a)
                         flag("B", flags.b)
-                        if model.board.plan == .pro {
-                            flag("C", flags.c)
-                            flag("D", flags.d)
-                        }
+                        flag("C", flags.c)
+                        flag("D", flags.d)
                         flag("TX", flags.tx)
                         flag("RX", flags.rx)
                         if flags.dnd { flag("DND", true) }
@@ -208,7 +206,6 @@ private struct JackCell: View {
     var body: some View {
         let board = model.board
         let friend = board.friend(jack)
-        let locked = board.isLocked(jack)
         let lamp = board.lamp(for: jack)
         let plugged = board.cord(at: jack) != nil || board.incoming[jack] != nil
         Button { model.tapJack(jack) } label: {
@@ -226,15 +223,15 @@ private struct JackCell: View {
                     LampView(lamp: lamp)
                 }
                 HStack(spacing: 10) {
-                    Hole(plugged: plugged, locked: locked)
+                    Hole(plugged: plugged)
                     VStack(alignment: .leading, spacing: 4) {
-                        Text(locked ? "PRO" : friend?.name ?? "ADD")
+                        Text(friend?.name ?? "ADD")
                             .font(Fonts.jura(14, friend == nil ? "Medium" : "SemiBold"))
                             .tracking(0.8)
-                            .foregroundStyle(nameColor(friend: friend, locked: locked))
+                            .foregroundStyle(nameColor(friend: friend))
                             .lineLimit(1)
                             .minimumScaleFactor(0.7)
-                        Text(status(friend: friend, locked: locked, lamp: lamp))
+                        Text(status(friend: friend, lamp: lamp))
                             .font(Fonts.jura(8.5, "SemiBold"))
                             .tracking(1)
                             .foregroundStyle(Palette.mute)
@@ -245,16 +242,16 @@ private struct JackCell: View {
             }
             .padding(11)
             .frame(maxWidth: .infinity, minHeight: 86, alignment: .topLeading)
-            .background(RoundedRectangle(cornerRadius: 11, style: .continuous).fill(locked ? Palette.soft : Palette.paper))
+            .background(RoundedRectangle(cornerRadius: 11, style: .continuous).fill(Palette.paper))
             .overlay(
                 RoundedRectangle(cornerRadius: 11, style: .continuous)
-                    .strokeBorder(Palette.ink, style: StrokeStyle(lineWidth: 1, dash: locked ? [4, 3] : []))
+                    .strokeBorder(Palette.ink, lineWidth: 1)
             )
             .contentShape(Rectangle())
         }
         .buttonStyle(.plain)
         .contextMenu {
-            if friend != nil, !locked {
+            if friend != nil {
                 let muted = board.isMuted(jack)
                 Button(muted ? "Unmute" : "Mute for Me", systemImage: muted ? "speaker.wave.2" : "speaker.slash") {
                     model.setMuted(jack, !muted)
@@ -264,17 +261,16 @@ private struct JackCell: View {
                 }
             }
         }
-        .accessibilityLabel(accessibility(friend: friend, locked: locked, lamp: lamp))
+        .accessibilityLabel(accessibility(friend: friend, lamp: lamp))
     }
 
-    private func nameColor(friend: Friend?, locked: Bool) -> Color {
-        if locked || friend == nil { return Palette.mute }
+    private func nameColor(friend: Friend?) -> Color {
+        if friend == nil { return Palette.mute }
         return friend?.presence == .online ? Palette.ink : Palette.away
     }
 
     /// What the jack is doing, under the name.
-    private func status(friend: Friend?, locked: Bool, lamp: Lamp) -> String {
-        if locked { return "8 JACKS ON PRO" }
+    private func status(friend: Friend?, lamp: Lamp) -> String {
         guard let friend else { return "A FRIEND'S CODE" }
         if model.board.isMuted(jack) && lamp != .off { return "ON THE LINE · MUTED" }
         switch lamp {
@@ -293,11 +289,10 @@ private struct JackCell: View {
         }
     }
 
-    private func accessibility(friend: Friend?, locked: Bool, lamp: Lamp) -> String {
+    private func accessibility(friend: Friend?, lamp: Lamp) -> String {
         let n = "Jack \(jack + 1)"
-        if locked { return "\(n), Pro only" }
         guard let friend else { return "\(n), empty. Add a friend." }
-        return "\(n), \(friend.name.capitalized), \(status(friend: friend, locked: false, lamp: lamp).lowercased())"
+        return "\(n), \(friend.name.capitalized), \(status(friend: friend, lamp: lamp).lowercased())"
     }
 }
 
@@ -335,7 +330,6 @@ private struct LampView: View {
 /// The jack's socket, with a plug in it while a cord is patched.
 private struct Hole: View {
     let plugged: Bool
-    let locked: Bool
 
     var body: some View {
         ZStack {
@@ -344,7 +338,7 @@ private struct Hole: View {
                 .fill(plugged ? Palette.orange : Palette.white)
                 .overlay(Circle().strokeBorder(Palette.ink, lineWidth: 1.5))
                 .padding(5)
-            Circle().fill(locked ? Palette.mute : Palette.key).frame(width: 13, height: 13)
+            Circle().fill(Palette.key).frame(width: 13, height: 13)
         }
         .frame(width: 40, height: 40)
         .accessibilityHidden(true)

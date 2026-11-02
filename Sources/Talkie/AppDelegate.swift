@@ -10,7 +10,6 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     private var boardWindow: DeviceNSWindow?
     private var effectsWindow: DeviceNSWindow?
     private var settingsWindow: DeviceNSWindow?
-    private var proWindow: DeviceNSWindow?
     private var linkWindow: DeviceNSWindow?
     private var welcomeWindow: DeviceNSWindow?
     private static let finishedWelcome = "didFinishFirstRun"
@@ -41,8 +40,6 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         }
         // The mic's settings key: mute, do not disturb, effects and hanging up, right where you talk.
         model.onMicMenu = { [weak self] point in self?.showMicMenu(at: point) }
-        // Reaching for a Pro jack, effect or knock sound shows what Pro is.
-        model.onShowPro = { [weak self] in self?.showPro() }
         // CI opens the packaged app once to prove it starts (its frameworks load), then quits.
         if ProcessInfo.processInfo.environment["TALKIE_SMOKE_TEST"] != nil {
             print("Talkie started")
@@ -140,8 +137,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         item("Do Not Disturb", on: board.doNotDisturb) { [weak self] in self?.model.toggleDoNotDisturb() }
         let effects = NSMenu()
         for effect in Effect.allCases {
-            let pro = effect != .off && !board.plan.hasEffects
-            let e = ClosureMenuItem(title: effect.title.capitalized + (pro ? " (Pro)" : "")) { [weak self] in
+            let e = ClosureMenuItem(title: effect.title.capitalized) { [weak self] in
                 MainActor.assumeIsolated { self?.model.setEffect(effect) }
             }
             e.state = board.effect == effect ? .on : .off
@@ -168,16 +164,6 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             effectsWindow = window
         }
         effectsWindow?.makeKeyAndOrderFront(nil)
-        NSApp.activate()
-    }
-
-    @objc func showPro() {
-        if proWindow == nil {
-            let window = makeDeviceWindow(title: "Talkie Pro", content: ProView(model: model))
-            window.center()
-            proWindow = window
-        }
-        proWindow?.makeKeyAndOrderFront(nil)
         NSApp.activate()
     }
 
@@ -383,12 +369,9 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         add(menu, "Add a Friend…", #selector(addFriend))
         if !model.practice { add(menu, "Link iPhone…", #selector(showLink)) }
         add(menu, "Voice Effects…", #selector(showEffects))
-        add(menu, model.board.plan == .pro ? "Talkie Pro" : "Go Pro…", #selector(showPro))
         add(menu, model.mic.isVisible ? "Put the Mic Away" : "Bring the Mic Out", #selector(toggleMicItem))
         add(menu, "Do Not Disturb", #selector(toggleDoNotDisturb)).state = model.board.doNotDisturb ? .on : .off
-        if model.board.plan.hasEffects {
-            add(menu, "Next Effect (\(model.board.effect.next.title.capitalized))", #selector(nextEffect))
-        }
+        add(menu, "Next Effect (\(model.board.effect.next.title.capitalized))", #selector(nextEffect))
         menu.addItem(.separator())
         add(menu, "Practice Board", #selector(togglePractice)).state = model.practice ? .on : .off
         if model.practice { addSimulateMenu(to: menu) }
@@ -405,9 +388,9 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     }
 
     private func whereabouts() -> String {
-        if model.practice { return "Practice board: simulated friends · \(model.board.plan.title.capitalized)" }
+        if model.practice { return "Practice board: simulated friends" }
         switch model.online?.status {
-        case .online(let code)?: return "Online as \(code) · \(model.board.plan.title.capitalized)"
+        case .online(let code)?: return "Online as \(code)"
         case .offline(let reason)?: return "Offline: \(reason.capitalized)"
         default: return "Connecting…"
         }
@@ -419,20 +402,6 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     private func addSimulateMenu(to menu: NSMenu) {
         let simulate = NSMenuItem(title: "Simulate", action: nil, keyEquivalent: "")
         let friends = NSMenu()
-        // Free or Pro, to see both without paying; and a free call's last minute without waiting ten.
-        for plan in Plan.allCases {
-            let item = ClosureMenuItem(title: "\(plan.title.capitalized) Plan") { [weak self] in
-                MainActor.assumeIsolated { self?.model.setPracticePlan(plan) }
-            }
-            item.state = model.board.plan == plan ? .on : .off
-            friends.addItem(item)
-        }
-        if model.board.plan == .free, model.board.isLive {
-            friends.addItem(ClosureMenuItem(title: "Free Call's Last Minute") { [weak self] in
-                MainActor.assumeIsolated { self?.model.simulateLastMinute() }
-            })
-        }
-        friends.addItem(.separator())
         for (jack, friend) in model.board.friends.enumerated() {
             guard let friend else { continue }
             let item = NSMenuItem(title: friend.name.capitalized, action: nil, keyEquivalent: "")

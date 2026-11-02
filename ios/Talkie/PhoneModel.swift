@@ -14,7 +14,7 @@ final class PhoneModel: OperatorHost {
     /// The name friends see on their board. Asked for once, the first time Talkie opens, or taken
     /// from your Mac's account when this iPhone is linked to it.
     private(set) var name: String
-    /// This iPhone uses your Mac's account (same code, friends and plan). The Mac's name stays in
+    /// This iPhone uses your Mac's account (same code and friends). The Mac's name stays in
     /// charge, so a linked iPhone never renames the account.
     private(set) var linked: Bool
     var myName: String { linked ? "" : name }
@@ -43,7 +43,6 @@ final class PhoneModel: OperatorHost {
 
     private enum Saved {
         static let name = "name"
-        static let plan = "plan"
         static let muted = "muted"
         static let soundOn = "soundOn"
         static let linked = "linked"
@@ -61,8 +60,7 @@ final class PhoneModel: OperatorHost {
             adding = demo == "add"
         } else {
             name = defaults.string(forKey: Saved.name) ?? ""
-            let plan = Plan(rawValue: defaults.string(forKey: Saved.plan) ?? "") ?? .free
-            board = Switchboard(friends: Array(repeating: nil, count: 8), myCode: "TLK-····", simulated: false, plan: plan)
+            board = Switchboard(friends: Array(repeating: nil, count: 8), myCode: "TLK-····", simulated: false, plan: .everything)
             board.setMutedFriends(Set(defaults.array(forKey: Saved.muted) as? [Int] ?? []))
         }
         sound.volume = soundOn ? 0.63 : 0
@@ -163,9 +161,9 @@ final class PhoneModel: OperatorHost {
         handle(events)
     }
 
+    /// Talkie is free: everyone gets the whole board, whatever the server once said about plans.
     func operatorConnected(code: String, friends: [Friend?], plan: Plan) {
-        defaults.set(plan.rawValue, forKey: Saved.plan)
-        var b = Switchboard(friends: friends, myCode: code, simulated: false, plan: plan)
+        var b = Switchboard(friends: friends, myCode: code, simulated: false, plan: .everything)
         b.setMutedFriends(board.muted)
         b.say("ONLINE", "YOUR CODE IS \(code)", now: now, for: 3)
         board = b
@@ -175,10 +173,8 @@ final class PhoneModel: OperatorHost {
         apply { $0.say("OFFLINE", reason, now: now, for: 8); return [] }
     }
 
-    func operatorChangedPlan(_ plan: Plan) {
-        defaults.set(plan.rawValue, forKey: Saved.plan)
-        apply { $0.setPlan(plan, now: now) }
-    }
+    /// Plans are gone: everyone has the whole board, so nothing changes.
+    func operatorChangedPlan(_ plan: Plan) {}
 
     func noteOffBoardKnock(name: String, code: String) {
         apply { $0.offBoardKnock(from: name, now: now) }

@@ -20,7 +20,6 @@ struct CordsLayer: View {
             }
             .allowsHitTesting(false)
 
-            // Cords your plan doesn't include stay in their docks (they show PRO).
             ForEach(order.filter { !model.board.isCordLocked($0) }, id: \.self) { c in
                 if docks[c] != nil, let sim = cords[c] {
                     PlugView(color: Self.color(c), lifted: sim.dragging)

@@ -15,26 +15,14 @@ launch, gets you a permanent code, keeps your board on the server, shows who's a
 carries knocks. When someone lets you in, LiveKit carries your voices, through your voice effect if
 you picked one. A practice board with simulated friends is in the menu bar menu.
 
-Not yet: taking real money (payments run in Lemon Squeezy's test mode) and notarization.
+Not yet: notarization.
 
-## Free and Pro
+## Free
 
-| | Free | Pro |
-| --- | --- | --- |
-| Jacks (friends on your board) | 3 | 8 |
-| Group calls | 3 people (2 cords) | 5 people (4 cords) |
-| Call length | 10 minutes; no limit if the other person has Pro | No limit |
-| Voice effects (Canyon, Tin can, Helium, Machine) | Try them on your own voice | On your calls; only your own voice changes |
-| Knock sounds | The standard knock | Pick one per friend (right-click their jack) |
-| Knocking, mic, do not disturb, private mute, buzz | Yes | Yes |
-| Price | Free | $4 a month or $36 a year, through Lemon Squeezy (test mode until launch) |
-
-The server decides: your plan, how many jacks you can fill and knock from, how many people fit on a
-call, and how long each line can last. The app shows locked jacks as **PRO**, counts down the last minute of a free call on the LCD,
-and opens the **Talkie Pro** window when you reach for something Pro. To make someone Pro for
-testing, run `update public.profiles set pro = true where code = 'TLK-XXXX';` in the Supabase SQL
-editor (set `pro_until` to give it an end date). On the practice board, **Simulate → Free Plan / Pro
-Plan** switches between the two, and **Free Call's Last Minute** skips to the end of a free call.
+Talkie is free: everyone gets the whole board. That's eight jacks, group calls of five, no time
+limit, voice effects on your calls and a knock sound for each friend. The Free/Pro split and its
+payments (Lemon Squeezy) were built and then switched off on 2 Nov; the server's `is_pro` now says
+yes for everyone, and neither app shows plans.
 
 ## Test it with a friend
 
@@ -46,8 +34,8 @@ Plan** switches between the two, and **Free Call's Last Minute** skips to the en
 4. Drag a cord into their jack. They hear a knock and their mic drops with your name on it. They
    press **LET IN** (or hold it to talk at once); then hold the mic or ⌥Space to talk.
 5. For a group call, plug a second cord into another friend while you're talking, or let in a
-   friend who knocks: they join the same call and everyone hears everyone. Free calls hold three
-   people and Pro calls five; anyone on the call can bring someone in, within their own plan.
+   friend who knocks: they join the same call and everyone hears everyone. A call holds five
+   people, and anyone on it can bring someone in.
    Someone a friend brought in shows on your LCD by name even if they aren't on your board.
 
 The menu bar menu's first line says whether you're online, and why not if you aren't.
@@ -105,11 +93,11 @@ Application: …" NOTARY_PROFILE=<a notarytool profile> scripts/bundle.sh` does 
 - Drag a plug into a friend's jack, or click a socket to send the next free cord flying in. That
   knocks: the lamp blinks until they let you in (practice friends do after a moment).
 - When the line opens the mic drops onto your screen. Hold its TALK key (or anywhere on it) to
-  talk; drag or fling it anywhere. Its orange side key changes the effect (Pro); the grey one buzzes. The
+  talk; drag or fling it anywhere. Its orange side key changes the effect; the grey one buzzes. The
   key on its left side opens the line's menu: mute, do not disturb, voice effect, hang up.
 - Space (while the board is in front) or ⌥Space (from any app) also talks. `F` changes the effect.
 - **Voice Effects…** in the menu bar menu: pick one, then hold **HOLD TO TRY IT**, say something and
-  let go to hear yourself through it. Anyone can try them; on Pro the people on your line hear it.
+  let go to hear yourself through it. The people on your line hear the one you pick.
 - Drag any Talkie window by its title strip. Its round keys close and minimise it (⌘W closes too).
 - Click the menu bar icon to put the mic away or bring it back. Right-click it to add a friend, voice
   effects, settings (or ⌘,) and **Practice Board**. On the practice board, **Simulate** picks a
@@ -130,7 +118,7 @@ It all happens on the switchboard. Press **ADD** on the deck, or click the free 
   the panel away. On the practice board `TLK-ZOE7`, `TLK-PIP3` and `TLK-NICO` work; `TLK-0000` doesn't.
 - Your own code sits next to it. **Copy** copies it; **Send card** shares a picture of your line card
   with the code, through Messages, Mail or AirDrop. Pasting that whole message into a board still works.
-- The board holds three friends on Free and eight on Pro. To make room, right-click a jack and choose **Eject**. Their code
+- The board holds eight friends. To make room, right-click a jack and choose **Eject**. Their code
   brings them back. (On the practice board the sample friends' codes are `TLK-` and their name, like
   `TLK-MAYA`; the full list is in `Sources/TalkieCore/Invite.swift`.)
 
@@ -147,10 +135,10 @@ and takes the rules from `TalkieCore`.
   card to let them in or turn them away. The first run asks for the name friends see.
 - One account on Mac and iPhone: **Link iPhone…** in the Mac's menu shows a code (8 characters,
   ten minutes, once); the iPhone types it (first screen, or Add a Friend) and gets the Mac's code,
-  friends and plan. Knocks ring on both; whichever answers takes the call, and the other stops
+  friends. Knocks ring on both; whichever answers takes the call, and the other stops
   ringing. Do not disturb follows the account. An iPhone can also have its own account. A call
   keeps going with the screen locked. Not yet: knocks while Talkie is closed (needs push notifications), Apple's Push
-  to Talk on the Lock Screen, buying Pro on iPhone.
+  to Talk on the Lock Screen.
 - Build it: `brew install xcodegen`, then `cd ios && xcodegen generate` and open
   `Talkie.xcodeproj`. CI builds it for the simulator and publishes screenshots of sample screens
   to the **Talkie for iPhone (preview)** release. Putting it on a phone needs the Apple Developer

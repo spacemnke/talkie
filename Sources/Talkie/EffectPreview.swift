@@ -3,7 +3,7 @@ import Observation
 import TalkieCore
 
 /// Hear an effect on your own voice: hold to record a few seconds, let go to hear it played back
-/// with the effect. Anyone can try them; Pro puts them on your calls.
+/// with the effect.
 @MainActor
 @Observable
 final class EffectPreview {

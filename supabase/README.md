@@ -10,13 +10,11 @@ The project is **talkie** (`xakscsouugwlyefaieyl`, London). The app signs in ano
   `let_in(knock, into_group)` brings a knock into your call. `group_limit` says how many the call
   can hold for whoever brought that person in (3 Free, 5 Pro) and the line-token function checks it
   against who's in the room.
-- Free or Pro: `profiles.pro` and `pro_until` (no end date when null). Nobody can set them from the
-  app. Free boards use jacks 01–03, Pro all eight; you can only fill, knock from and let in knocks
-  on jacks your plan has. `line_limit` says how long a line can last (600 seconds, or no limit if
-  anyone on the call is Pro, otherwise what's left of the call's ten minutes) and the line pass
-  carries it as `limit_seconds`. Make someone Pro by hand:
-  `update public.profiles set pro = true where code = 'TLK-XXXX';`
-- Payments (Lemon Squeezy): `functions/lemon-webhook/` takes Lemon Squeezy's subscription events,
+- Plans: Talkie is free, and `is_pro` says yes for everyone (2 Nov), so every account gets eight
+  jacks, calls of five and no time limit. The plan machinery (`profiles.pro`, `pro_until`,
+  `my_plan`, `my_jack_limit`, `line_limit`, `group_limit` and the policies built on them) stays in
+  place, opened up.
+- Payments (Lemon Squeezy), switched off 2 Nov and unused: `functions/lemon-webhook/` takes Lemon Squeezy's subscription events,
   checks their signature (`X-Signature`, HMAC-SHA256 with the secret `LEMON_SQUEEZY_WEBHOOK_SECRET`)
   and calls `apply_subscription`, which keeps the subscription in the private `subscriptions` table
   (no policies: the app can't see it) and sets the buyer's `pro` and `pro_until` from it. The buyer

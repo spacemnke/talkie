@@ -32,31 +32,28 @@ struct Caption: View {
 
 // MARK: Voice effects
 
-/// Pick an effect, and hold TRY IT to hear it on your own voice. Anyone can try them; on Pro the
-/// people on your line hear the one you pick.
+/// Pick an effect, and hold TRY IT to hear it on your own voice. The people on your line hear the
+/// one you pick.
 struct EffectsView: View {
     let model: BoardModel
     @State private var preview = EffectPreview()
-    /// On Free, the effect you're trying out (it isn't put on your calls).
-    @State private var trying: Effect = .canyon
 
     var body: some View {
-        let pro = model.board.plan.hasEffects
-        let chosen = pro ? model.board.effect : trying
+        let chosen = model.board.effect
         DeviceWindow(title: "VOICE EFFECTS") {
             VStack(alignment: .leading, spacing: 0) {
                 Text("CHANGE YOUR SIGNAL.")
                     .font(Fonts.jura(17, "Regular"))
                     .tracking(0.8)
                     .padding(.top, 22)
-                Text(pro ? "The people on your line hear the effect." : "Try them on your own voice. Pro puts them on your calls.")
+                Text("The people on your line hear the effect.")
                     .font(Fonts.jura(11, "Regular"))
                     .foregroundStyle(Palette.mute)
                     .padding(.top, 8)
                 VStack(spacing: 8) {
                     ForEach(Effect.allCases, id: \.self) { effect in
-                        EffectRow(effect: effect, selected: chosen == effect, pro: !pro && effect != .off) {
-                            if pro { model.setEffect(effect) } else { trying = effect }
+                        EffectRow(effect: effect, selected: chosen == effect) {
+                            model.setEffect(effect)
                         }
                     }
                 }
@@ -65,21 +62,9 @@ struct EffectsView: View {
                     preview.stopRecording(effect: chosen, volume: Float(model.volume))
                 }
                 .padding(.top, 14)
-                if pro {
-                    Caption(text: "SIDE KEY TO CYCLE · F ON THE BOARD")
-                        .frame(maxWidth: .infinity)
-                        .padding(.top, 14)
-                } else {
-                    Button { model.onShowPro?() } label: {
-                        Text("GO PRO TO USE THEM ON CALLS →")
-                            .font(Fonts.jura(8.5, "SemiBold"))
-                            .tracking(1.2)
-                            .foregroundStyle(Palette.orange)
-                    }
-                    .buttonStyle(.plain)
+                Caption(text: "SIDE KEY TO CYCLE · F ON THE BOARD")
                     .frame(maxWidth: .infinity)
                     .padding(.top, 14)
-                }
             }
             .foregroundStyle(Palette.ink)
             .padding(EdgeInsets(top: 0, leading: 20, bottom: 18, trailing: 20))
@@ -145,8 +130,6 @@ private struct TryKey: View {
 private struct EffectRow: View {
     let effect: Effect
     let selected: Bool
-    /// Comes with Pro: on Free you can only try it here.
-    var pro = false
     let action: () -> Void
 
     var body: some View {
@@ -165,7 +148,6 @@ private struct EffectRow: View {
                     Text(effect.detail).font(Fonts.jura(10, "Regular")).foregroundStyle(Palette.mute)
                 }
                 Spacer(minLength: 0)
-                if pro { ProBadge() }
             }
             .padding(.horizontal, 13)
             .frame(height: 46)
@@ -253,24 +235,6 @@ struct SettingsView: View {
                 }
                 .padding(20)
                 .insetPanel(Palette.paper, radius: 14)
-                .padding(.top, 14)
-
-                HStack(alignment: .center) {
-                    VStack(alignment: .leading, spacing: 7) {
-                        Text("PLAN · \(model.board.plan.title)").font(Fonts.jura(11, "SemiBold")).tracking(1)
-                        Text(model.board.plan == .pro ? "Eight jacks, calls of five, no time limit, effects and knock sounds."
-                            : "Three jacks, calls of three, ten minutes each. Pro opens the whole board.")
-                            .font(Fonts.jura(10, "Regular"))
-                            .foregroundStyle(Palette.mute)
-                    }
-                    Spacer(minLength: 0)
-                    Button { model.onShowPro?() } label: {
-                        Text(model.board.plan == .pro ? "PRO" : "SEE PRO").frame(width: 96, height: 32)
-                    }
-                    .buttonStyle(RelayKeyStyle())
-                }
-                .padding(20)
-                .insetPanel(radius: 14)
                 .padding(.top, 14)
 
                 HStack(alignment: .center) {
