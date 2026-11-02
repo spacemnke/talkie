@@ -11,6 +11,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     private var effectsWindow: DeviceNSWindow?
     private var settingsWindow: DeviceNSWindow?
     private var proWindow: DeviceNSWindow?
+    private var linkWindow: DeviceNSWindow?
     private var welcomeWindow: DeviceNSWindow?
     private static let finishedWelcome = "didFinishFirstRun"
     private var overlay: MicOverlay?
@@ -177,6 +178,16 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             proWindow = window
         }
         proWindow?.makeKeyAndOrderFront(nil)
+        NSApp.activate()
+    }
+
+    /// A fresh link code every time it opens.
+    @objc func showLink() {
+        linkWindow?.close()
+        let window = makeDeviceWindow(title: "Link iPhone", content: LinkView(model: model))
+        window.center()
+        linkWindow = window
+        window.makeKeyAndOrderFront(nil)
         NSApp.activate()
     }
 
@@ -370,6 +381,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         menu.addItem(.separator())
         add(menu, "Open Switchboard", #selector(showBoard))
         add(menu, "Add a Friend…", #selector(addFriend))
+        if !model.practice { add(menu, "Link iPhone…", #selector(showLink)) }
         add(menu, "Voice Effects…", #selector(showEffects))
         add(menu, model.board.plan == .pro ? "Talkie Pro" : "Go Pro…", #selector(showPro))
         add(menu, model.mic.isVisible ? "Put the Mic Away" : "Bring the Mic Out", #selector(toggleMicItem))

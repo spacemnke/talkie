@@ -25,6 +25,12 @@ The project is **talkie** (`xakscsouugwlyefaieyl`, London). The app signs in ano
   verification off; the signature is the check. A purchase with no account is kept with its email:
   link it with `update public.subscriptions set person = '<id>' where id = '<subscription>';` and
   then `select public.refresh_paid_pro('<id>');`.
+- One account on several devices: `start_link()` gives you a link code for your account (private
+  `link_codes` table: 8 characters, ten minutes, once). `functions/link-device/` takes a code,
+  uses it (`use_link`, service role only) and returns a one-time magic-link token for that account,
+  which the iPhone redeems with `verifyOTP(tokenHash:type: .magiclink)`. Signing in needs an email
+  on the account, so one without gets a private `<id>@link.switchtalkie.com` (never mailed).
+  Deployed with JWT verification off; the code is the check.
 - Who's around: each Talkie checks in every 30 seconds (with its do-not-disturb state) and signs
   off on quit; friends hear check-ins live through Realtime, and 75 seconds of silence means away.
   Realtime Presence dropped or crashed too often on this project to rely on.

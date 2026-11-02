@@ -145,8 +145,11 @@ and takes the rules from `TalkieCore`.
 - One screen: the nameplate (DND, ADD), the display, eight jacks (tap to knock, let in or pull the
   plug; touch and hold to mute or eject) and the deck (BUZZ, hold TALK, HANG UP). A knock shows a
   card to let them in or turn them away. The first run asks for the name friends see.
-- Each iPhone is its own account with its own code, like each Mac. A call keeps going with the
-  screen locked. Not yet: knocks while Talkie is closed (needs push notifications), Apple's Push
+- One account on Mac and iPhone: **Link iPhone…** in the Mac's menu shows a code (8 characters,
+  ten minutes, once); the iPhone types it (first screen, or Add a Friend) and gets the Mac's code,
+  friends and plan. Knocks ring on both; whichever answers takes the call, and the other stops
+  ringing. Do not disturb follows the account. An iPhone can also have its own account. A call
+  keeps going with the screen locked. Not yet: knocks while Talkie is closed (needs push notifications), Apple's Push
   to Talk on the Lock Screen, buying Pro on iPhone.
 - Build it: `brew install xcodegen`, then `cd ios && xcodegen generate` and open
   `Talkie.xcodeproj`. CI builds it for the simulator and publishes screenshots of sample screens

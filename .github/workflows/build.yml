@@ -156,7 +156,7 @@ jobs:
           xcrun simctl status_bar "$UDID" override --time 9:41 --batteryState charged --batteryLevel 100 || true
           xcrun simctl install "$UDID" "$APP"
           mkdir -p build/shots
-          for scene in welcome board knock call add free; do
+          for scene in welcome link board knock call add free; do
             xcrun simctl terminate "$UDID" com.spacemnke.talkie 2>/dev/null || true
             SIMCTL_CHILD_TALKIE_DEMO=$scene xcrun simctl launch "$UDID" com.spacemnke.talkie
             sleep 7

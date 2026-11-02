@@ -80,6 +80,9 @@ final class Operator {
     private static let awayAfter: TimeInterval = 75
     /// Your Pro columns as last seen, to notice when they change.
     private var proStamp: String?
+    /// When do not disturb last changed on this device: your own check-ins echoing back just after
+    /// aren't taken as another device's say.
+    private var localDNDChange = Date.distantPast
 
     /// A friend's profile as it changes: they checked in, signed off or switched DND.
     /// Your own row comes through too, which is how going Pro arrives.
@@ -103,9 +106,11 @@ final class Operator {
         let name: String
         let pro: Bool?
         let proUntil: String?
+        /// Do not disturb, as your account last checked in (from any of your devices).
+        let dnd: Bool?
 
         enum CodingKeys: String, CodingKey {
-            case id, code, name, pro
+            case id, code, name, pro, dnd
             case proUntil = "pro_until"
         }
     }
@@ -213,6 +218,10 @@ final class Operator {
                 friends[row.jack] = Friend(id: id, name: (row.profile?.name ?? "FRIEND").uppercased(), online: false)
             }
             model.operatorConnected(code: profile.code, friends: friends, plan: plan)
+            // With your account on more than one device, do not disturb follows the account.
+            if profile.dnd == true, !model.board.doNotDisturb {
+                model.apply { $0.setDoNotDisturb(true, now: model.now) }
+            }
             try await listen(me: profile.id)
             await checkIn()
             await refreshPresence()
@@ -250,6 +259,7 @@ final class Operator {
 
     /// A short reason for the LCD.
     static func describe(_ error: Error) -> String {
+        if error is LinkError { return "WRONG OR EXPIRED CODE" }
         let text = String(describing: error).lowercased()
         if text.contains("anonymous") { return "ANONYMOUS SIGN-INS ARE OFF" }
         if text.contains("livekit") { return "LIVEKIT ISN'T SET UP" }
@@ -368,6 +378,10 @@ final class Operator {
     private func checkedIn(_ change: CheckIn?) {
         guard let change else { return }
         if change.id == me {
+            // Another of your devices switched do not disturb.
+            if change.dnd != model.board.doNotDisturb, Date().timeIntervalSince(localDNDChange) > 3 {
+                model.apply { $0.setDoNotDisturb(change.dnd, now: model.now) }
+            }
             let stamp = Self.stamp(pro: change.pro, until: change.proUntil)
             guard stamp != proStamp else { return }
             proStamp = stamp
@@ -429,13 +443,20 @@ final class Operator {
         }
     }
 
-    /// They gave up knocking before you answered.
+    /// They gave up knocking before you answered, or you answered on another of your devices
+    /// (this one stops ringing; only the device that answered joins the call).
     private func theirKnockChanged(_ knock: KnockRow?) {
-        guard let knock, knock.status == "cancelled", incoming[knock.caller] == knock.id else { return }
+        guard let knock, knock.status == "cancelled" || knock.status == "answered", incoming[knock.caller] == knock.id else { return }
         incoming[knock.caller] = nil
         incomingFromCall.remove(knock.caller)
         guard let jack = jack(of: knock.caller) else { return }
-        model.apply { $0.friendStoppedKnocking(jack, now: model.now) }
+        model.apply { b in
+            let events = b.friendStoppedKnocking(jack, now: model.now)
+            if knock.status == "answered" {
+                b.say(b.friend(jack)?.name ?? "ANSWERED", "ANSWERED ON YOUR OTHER DEVICE", now: model.now, for: 2.4)
+            }
+            return events
+        }
     }
 
     /// They let you in: open the line and join the call (theirs, if they brought you into one).
@@ -584,7 +605,10 @@ final class Operator {
         for jack in old.incoming.keys where !new.isLineOpen(jack) {
             if let id = friendID(jack, old) { hangUp(id) }
         }
-        if old.doNotDisturb != new.doNotDisturb { Task { await checkIn() } }
+        if old.doNotDisturb != new.doNotDisturb {
+            localDNDChange = Date()
+            Task { await checkIn() }
+        }
         if old.talking != new.talking { line.setTalking(new.talking) }
         if old.effect != new.effect { VoiceEffects.shared.set(new.effect) }
         if old.muted != new.muted { line.setMuted(mutedAccounts()) }
@@ -714,6 +738,40 @@ final class Operator {
     }
 
     // MARK: Your board
+
+    // MARK: One account on several devices
+
+    /// A code another of your devices can type to use this account: same code, board and plan.
+    /// Good for ten minutes, once.
+    func startLink() async throws -> String {
+        try await client.rpc("start_link").execute().value
+    }
+
+    /// Signs this device in to the account a link code came from (its own account, if it had one,
+    /// is left behind). Call `connect()` after. Returns that account's code and name.
+    func useLink(_ code: String) async throws -> (code: String, name: String) {
+        struct Linked: Decodable {
+            let tokenHash: String
+            let code: String?
+            let name: String?
+            enum CodingKeys: String, CodingKey {
+                case code, name
+                case tokenHash = "token_hash"
+            }
+        }
+        let linked: Linked
+        do {
+            linked = try await client.functions.invoke("link-device", options: FunctionInvokeOptions(body: ["code": code]))
+        } catch FunctionsError.httpError(let status, _) where status == 400 || status == 404 {
+            throw LinkError.wrongCode
+        }
+        _ = try await client.auth.verifyOTP(tokenHash: linked.tokenHash, type: .magiclink)
+        return (linked.code ?? "", linked.name ?? "")
+    }
+
+    enum LinkError: Error {
+        case wrongCode
+    }
 
     /// Who a code belongs to. Nil when nobody has it.
     func lookUp(_ code: String) async throws -> Invite? {

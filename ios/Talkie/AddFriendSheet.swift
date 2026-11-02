@@ -8,6 +8,7 @@ struct AddFriendSheet: View {
     @Bindable var model: PhoneModel
     @FocusState private var typing: Bool
     @State private var copied = false
+    @State private var linkingToMac = false
 
     var body: some View {
         VStack(alignment: .leading, spacing: 18) {
@@ -35,6 +36,15 @@ struct AddFriendSheet: View {
                         Text("SEND").frame(width: 62, height: 34)
                     }
                     .buttonStyle(RelayKeyStyle(fill: Palette.orange, height: 3))
+                }
+                if !model.linked {
+                    Button { linkingToMac = true } label: {
+                        Text("SAME CODE AS YOUR MAC? LINK THIS IPHONE →")
+                            .font(Fonts.jura(10, "SemiBold"))
+                            .tracking(1.2)
+                            .foregroundStyle(Palette.orangeInk)
+                    }
+                    .buttonStyle(.plain)
                 }
             }
 
@@ -82,6 +92,10 @@ struct AddFriendSheet: View {
         .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
         .background(Palette.shell.ignoresSafeArea())
         .onAppear { typing = model.demo == nil }
+        .sheet(isPresented: $linkingToMac) {
+            LinkSheet(model: model)
+                .presentationDetents([.large])
+        }
     }
 
     private func label(_ text: String) -> some View {
@@ -96,6 +110,7 @@ struct AddFriendSheet: View {
 struct WelcomeView: View {
     let model: PhoneModel
     @State private var name = ""
+    @State private var linkingToMac = false
     @FocusState private var typing: Bool
 
     var body: some View {
@@ -138,11 +153,25 @@ struct WelcomeView: View {
             }
             .buttonStyle(RelayKeyStyle(fill: Palette.orange))
             .disabled(name.trimmingCharacters(in: .whitespaces).isEmpty)
+            Button { linkingToMac = true } label: {
+                Text("ALREADY ON TALKIE ON YOUR MAC? LINK THIS IPHONE →")
+                    .font(Fonts.jura(10.5, "SemiBold"))
+                    .tracking(1.2)
+                    .foregroundStyle(Palette.orangeInk)
+                    .frame(maxWidth: .infinity)
+            }
+            .buttonStyle(.plain)
             Spacer(minLength: 20)
         }
         .foregroundStyle(Palette.ink)
         .padding(.horizontal, 24)
         .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .leading)
         .background(Palette.shell.ignoresSafeArea())
+        .sheet(isPresented: $linkingToMac) {
+            LinkSheet(model: model)
+                .presentationDetents([.large])
+        }
+        // The simulator's screenshot of linking.
+        .onAppear { if model.demo == "link" { linkingToMac = true } }
     }
 }

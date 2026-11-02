@@ -11,9 +11,15 @@ import TalkieCore
 @Observable
 final class PhoneModel: OperatorHost {
     private(set) var board: Switchboard
-    /// The name friends see on their board. Asked for once, the first time Talkie opens.
+    /// The name friends see on their board. Asked for once, the first time Talkie opens, or taken
+    /// from your Mac's account when this iPhone is linked to it.
     private(set) var name: String
-    var myName: String { name }
+    /// This iPhone uses your Mac's account (same code, friends and plan). The Mac's name stays in
+    /// charge, so a linked iPhone never renames the account.
+    private(set) var linked: Bool
+    var myName: String { linked ? "" : name }
+    private(set) var linking = false
+    private(set) var linkProblem: String?
     var now: TimeInterval { ProcessInfo.processInfo.systemUptime }
 
     /// Levels for the meter: your microphone and the people you hear, 0...1.
@@ -40,6 +46,7 @@ final class PhoneModel: OperatorHost {
         static let plan = "plan"
         static let muted = "muted"
         static let soundOn = "soundOn"
+        static let linked = "linked"
     }
 
     init() {
@@ -47,8 +54,9 @@ final class PhoneModel: OperatorHost {
         self.demo = demo
         let defaults = UserDefaults.standard
         soundOn = defaults.object(forKey: Saved.soundOn) as? Bool ?? true
+        linked = demo == nil && defaults.bool(forKey: Saved.linked)
         if let demo {
-            name = demo == "welcome" ? "" : "SPACEMONKE"
+            name = demo == "welcome" || demo == "link" ? "" : "SPACEMONKE"
             board = Demo.board(demo, now: ProcessInfo.processInfo.systemUptime)
             adding = demo == "add"
         } else {
@@ -325,6 +333,45 @@ final class PhoneModel: OperatorHost {
             codeText = ""
         }
     }
+
+    // MARK: One account with your Mac
+
+    /// Signs this iPhone in to your Mac's account with the code Talkie on the Mac shows (Link
+    /// iPhone…). Its own account, if it had one, is left behind.
+    func link(_ raw: String) {
+        let code = raw.uppercased().filter { $0.isLetter || $0.isNumber }
+        guard code.count == 8 else {
+            linkProblem = "ENTER THE 8 CHARACTERS FROM YOUR MAC"
+            return
+        }
+        guard demo == nil, !linking else { return }
+        linking = true
+        linkProblem = nil
+        let op = online ?? Operator(model: self)
+        online = op
+        Task {
+            do {
+                let account = try await op.useLink(code)
+                linking = false
+                linked = true
+                defaults.set(true, forKey: Saved.linked)
+                let newName = account.name.isEmpty ? (name.isEmpty ? "TALKIE" : name) : account.name.uppercased()
+                name = newName
+                defaults.set(newName, forKey: Saved.name)
+                adding = false
+                apply { $0.say("LINKED", "SAME CODE AS YOUR MAC", now: now, for: 10); return [.click] }
+                op.connect()
+            } catch {
+                linking = false
+                linkProblem = Operator.describe(error)
+            }
+        }
+    }
+
+    func clearLinkProblem() { linkProblem = nil }
+
+    /// This iPhone has its own account (not your Mac's) with a code friends may have added.
+    var hasOwnCode: Bool { !linked && !name.isEmpty && board.myCode.hasPrefix("TLK-") && !board.myCode.contains("·") }
 
     /// Your code, ready to send.
     var shareText: String {
