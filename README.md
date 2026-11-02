@@ -134,6 +134,25 @@ It all happens on the switchboard. Press **ADD** on the deck, or click the free 
   brings them back. (On the practice board the sample friends' codes are `TLK-` and their name, like
   `TLK-MAYA`; the full list is in `Sources/TalkieCore/Invite.swift`.)
 
+## Talkie for iPhone
+
+`ios/` is Talkie for iPhone (iOS 17 or later): the same switchboard, accounts, knocks and calls as
+the Mac, so an iPhone and a Mac can be on the same call. It compiles the Mac app's own
+`Operator.swift`, `Line.swift`, `LevelMeter.swift`, `VoiceEffects.swift` and `SoundBoard.swift`
+(the operator works for an `OperatorHost`: the Mac's `BoardModel` or the iPhone's `PhoneModel`)
+and takes the rules from `TalkieCore`.
+
+- One screen: the nameplate (DND, ADD), the display, eight jacks (tap to knock, let in or pull the
+  plug; touch and hold to mute or eject) and the deck (BUZZ, hold TALK, HANG UP). A knock shows a
+  card to let them in or turn them away. The first run asks for the name friends see.
+- Each iPhone is its own account with its own code, like each Mac. A call keeps going with the
+  screen locked. Not yet: knocks while Talkie is closed (needs push notifications), Apple's Push
+  to Talk on the Lock Screen, buying Pro on iPhone.
+- Build it: `brew install xcodegen`, then `cd ios && xcodegen generate` and open
+  `Talkie.xcodeproj`. CI builds it for the simulator and publishes screenshots of sample screens
+  to the **Talkie for iPhone (preview)** release. Putting it on a phone needs the Apple Developer
+  account (TestFlight).
+
 ## Website
 
 The landing page lives in `site/` and goes out to **https://switchtalkie.com** through Cloudflare
@@ -151,5 +170,6 @@ Open `site/index.html` in a browser to preview it.
 | `Tests/TalkieCoreTests` | `swift test` |
 | `design/` | The interactive prototype and the decisions behind it. |
 | `site/`, `web/` | The website at switchtalkie.com and the Worker that serves it. |
+| `ios/` | Talkie for iPhone: `project.yml` (XcodeGen) and its SwiftUI screens. |
 
 Fonts: [Jura](https://fonts.google.com/specimen/Jura) and [Doto](https://fonts.google.com/specimen/Doto), both under the SIL Open Font License (see `Sources/Talkie/Resources/Fonts`).
