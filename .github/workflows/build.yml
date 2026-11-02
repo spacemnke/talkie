@@ -19,6 +19,8 @@ jobs:
       - name: Test TalkieCore
         run: swift test
 
+  # Only claude/native-board signs, feeds the updater and publishes the Mac app; other branches
+  # (like the iPhone work) build and test without reaching anyone's Talkie.
   mac:
     runs-on: macos-15
     # Notarization waits on Apple, usually a few minutes per file.
@@ -40,7 +42,7 @@ jobs:
       # The Developer ID certificate (a base64 .p12 in the repository's secrets) goes into a
       # throwaway keychain for this run. Without it, the build is signed ad hoc as before.
       - name: Signing identity
-        if: github.event_name != 'pull_request'
+        if: github.ref == 'refs/heads/claude/native-board'
         env:
           DEVELOPER_ID_P12: ${{ secrets.DEVELOPER_ID_P12 }}
           DEVELOPER_ID_P12_PASSWORD: ${{ secrets.DEVELOPER_ID_P12_PASSWORD }}
@@ -79,7 +81,7 @@ jobs:
 
       # The update feed Talkie checks: this build, signed with the key in the repository's secrets.
       - name: Update feed
-        if: github.event_name != 'pull_request'
+        if: github.ref == 'refs/heads/claude/native-board'
         env:
           SPARKLE_PRIVATE_KEY: ${{ secrets.SPARKLE_PRIVATE_KEY }}
         run: |
@@ -100,7 +102,7 @@ jobs:
 
       # Keep one always-current download: Releases → "Talkie (latest build)" → Talkie.dmg
       - name: Publish latest build
-        if: github.event_name != 'pull_request'
+        if: github.ref == 'refs/heads/claude/native-board'
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
@@ -118,3 +120,65 @@ jobs:
             --target "$GITHUB_SHA" \
             --title "Talkie (latest build)" \
             --notes "$notes"
+
+  # Talkie for iPhone: the Xcode project comes from ios/project.yml. Builds for the simulator (no
+  # signing needed), then opens a few screens there with sample friends and saves screenshots.
+  ios:
+    runs-on: macos-15
+    timeout-minutes: 40
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Project
+        run: |
+          xcodebuild -version
+          brew install xcodegen
+          cd ios && xcodegen generate
+
+      - name: Build for the iPhone simulator
+        run: |
+          set -o pipefail
+          xcodebuild -project ios/Talkie.xcodeproj -scheme Talkie -configuration Debug \
+            -destination 'generic/platform=iOS Simulator' -derivedDataPath build/ios \
+            CODE_SIGNING_ALLOWED=NO build -quiet
+
+      - name: Screenshots
+        run: |
+          set -euo pipefail
+          APP=$(find build/ios/Build/Products -path '*iphonesimulator*' -name Talkie.app -maxdepth 3 | head -1)
+          UDID=$(xcrun simctl list devices available -j | python3 -c '
+          import json, sys
+          devices = [d for runtime, ds in json.load(sys.stdin)["devices"].items() if "iOS" in runtime for d in ds]
+          phones = [d for d in devices if d["name"].startswith("iPhone 16")] or [d for d in devices if d["name"].startswith("iPhone")]
+          print(phones[-1]["udid"])')
+          xcrun simctl boot "$UDID"
+          xcrun simctl bootstatus "$UDID" -b
+          xcrun simctl status_bar "$UDID" override --time 9:41 --batteryState charged --batteryLevel 100 || true
+          xcrun simctl install "$UDID" "$APP"
+          mkdir -p build/shots
+          for scene in welcome board knock call add free; do
+            xcrun simctl terminate "$UDID" com.spacemnke.talkie 2>/dev/null || true
+            SIMCTL_CHILD_TALKIE_DEMO=$scene xcrun simctl launch "$UDID" com.spacemnke.talkie
+            sleep 7
+            xcrun simctl io "$UDID" screenshot "build/shots/$scene.png"
+          done
+          ls -l build/shots
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: Talkie-iPhone-screenshots
+          path: build/shots
+          retention-days: 14
+
+      # The latest screenshots, viewable without signing in: Releases → "Talkie for iPhone (preview)".
+      - name: Publish screenshots
+        if: github.event_name != 'pull_request'
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh release delete ios-preview --yes --cleanup-tag || true
+          gh release create ios-preview build/shots/*.png \
+            --prerelease \
+            --target "$GITHUB_SHA" \
+            --title "Talkie for iPhone (preview)" \
+            --notes "Screenshots from the iPhone simulator, built from ${GITHUB_REF_NAME} at ${GITHUB_SHA::7}. Not an installable app yet."
