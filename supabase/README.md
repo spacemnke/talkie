@@ -25,8 +25,8 @@ The project is **talkie** (`xakscsouugwlyefaieyl`, London). The app signs in ano
   then `select public.refresh_paid_pro('<id>');`.
 - One account on several devices: `start_link()` gives you a link code for your account (private
   `link_codes` table: 8 characters, ten minutes, once). `functions/link-device/` takes a code,
-  uses it (`use_link`, service role only; ten wrong codes in an hour from one address and it
-  refuses with 429, counted in `link_attempts`) and returns a one-time magic-link token for that account,
+  uses it (`use_link`, service role only; ten wrong codes in an hour from one address, or
+  300 from everyone together, and it refuses with 429, counted in `link_attempts`) and returns a one-time magic-link token for that account,
   which the iPhone redeems with `verifyOTP(tokenHash:type: .magiclink)`. Signing in needs an email
   on the account, so one without gets a private `<id>@link.switchtalkie.com` (never mailed).
   Deployed with JWT verification off; the code is the check.

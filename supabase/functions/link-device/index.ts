@@ -30,8 +30,10 @@ Deno.serve(async (req: Request) => {
   const admin = createClient(Deno.env.get("SUPABASE_URL")!, Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!, {
     auth: { persistSession: false },
   });
-  // The caller's address, as the gateway saw it, for counting wrong codes.
-  const ip = (req.headers.get("x-forwarded-for") ?? "").split(",")[0].trim();
+  // The caller's address, for counting wrong codes: Cloudflare's own header when there is one
+  // (callers can't set it), otherwise the first forwarded address. use_link also caps wrong codes
+  // for everyone together, so a made-up address doesn't buy more guesses.
+  const ip = (req.headers.get("cf-connecting-ip") ?? req.headers.get("x-forwarded-for")?.split(",")[0] ?? "").trim();
   const { data: person, error } = await admin.rpc("use_link", { link_code: code, from_ip: ip });
   if (error?.message?.includes("too many tries")) {
     return json({ error: "Too many wrong codes. Try again in an hour." }, 429);
