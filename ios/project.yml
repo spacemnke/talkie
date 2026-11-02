@@ -1,0 +1,85 @@
+# Talkie for iPhone. Generate the Xcode project with `xcodegen generate` in this folder
+# (brew install xcodegen), then open Talkie.xcodeproj. CI does the same.
+#
+# The switchboard rules come from the Swift package at the repository root (TalkieCore), and the
+# operator, the voice line and the sounds are the Mac app's own files, compiled here too, so the
+# two apps always speak the same protocol.
+name: Talkie
+options:
+  bundleIdPrefix: com.spacemnke
+  deploymentTarget:
+    iOS: "17.0"
+  createIntermediateGroups: true
+settings:
+  base:
+    SWIFT_VERSION: "5.0"
+    MARKETING_VERSION: "0.1.0"
+    CURRENT_PROJECT_VERSION: "1"
+packages:
+  TalkieCore:
+    path: ..
+  Supabase:
+    url: https://github.com/supabase/supabase-swift.git
+    exactVersion: 2.55.3
+  LiveKit:
+    url: https://github.com/livekit/client-sdk-swift.git
+    exactVersion: 2.17.0
+targets:
+  Talkie:
+    type: application
+    platform: iOS
+    sources:
+      - path: Talkie
+      - path: ../Sources/Talkie/Online/Operator.swift
+        group: Shared
+      - path: ../Sources/Talkie/Online/Line.swift
+        group: Shared
+      - path: ../Sources/Talkie/Online/LevelMeter.swift
+        group: Shared
+      - path: ../Sources/Talkie/Online/VoiceEffects.swift
+        group: Shared
+      - path: ../Sources/Talkie/SoundBoard.swift
+        group: Shared
+      - path: ../Sources/Talkie/Resources/Fonts/Jura.ttf
+        group: Fonts
+        buildPhase: resources
+      - path: ../Sources/Talkie/Resources/Fonts/Doto.ttf
+        group: Fonts
+        buildPhase: resources
+    dependencies:
+      - package: TalkieCore
+        product: TalkieCore
+      - package: Supabase
+        product: Supabase
+      - package: LiveKit
+        product: LiveKit
+    info:
+      path: Talkie/Info.plist
+      properties:
+        CFBundleDisplayName: Talkie
+        CFBundleShortVersionString: $(MARKETING_VERSION)
+        CFBundleVersion: $(CURRENT_PROJECT_VERSION)
+        LSRequiresIPhoneOS: true
+        ITSAppUsesNonExemptEncryption: false
+        NSMicrophoneUsageDescription: Talkie uses the microphone only while you hold TALK.
+        UIAppFonts: [Jura.ttf, Doto.ttf]
+        # A call keeps going with the screen locked or another app open.
+        UIBackgroundModes: [audio]
+        UILaunchScreen: {}
+        UIApplicationSceneManifest:
+          UIApplicationSupportsMultipleScenes: false
+        UISupportedInterfaceOrientations: [UIInterfaceOrientationPortrait]
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: com.spacemnke.talkie
+        PRODUCT_NAME: Talkie
+        TARGETED_DEVICE_FAMILY: "1"
+        ASSETCATALOG_COMPILER_APPICON_NAME: AppIcon
+        CODE_SIGN_STYLE: Automatic
+schemes:
+  Talkie:
+    build:
+      targets:
+        Talkie: all
+    run:
+      config: Debug
