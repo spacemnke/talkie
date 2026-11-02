@@ -20,7 +20,6 @@ final class SoundBoard {
     private var nextPlayer = 0
     private var buffers: [Sound: AVAudioPCMBuffer] = [:]
     private var knocks: [KnockSound: AVAudioPCMBuffer] = [:]
-    private var started = false
 
     /// 0...1. Zero silences everything.
     var volume: Float = 0.63 {
@@ -50,9 +49,10 @@ final class SoundBoard {
 
     private func play(_ buffer: AVAudioPCMBuffer?) {
         guard volume > 0, let buffer else { return }
-        if !started {
+        // Started on first use, and again if something stopped it (on iPhone, a call changing the
+        // audio session does).
+        if !engine.isRunning {
             do { try engine.start() } catch { return }
-            started = true
         }
         let p = players[nextPlayer]
         nextPlayer = (nextPlayer + 1) % players.count

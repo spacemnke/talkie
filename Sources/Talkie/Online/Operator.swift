@@ -18,6 +18,24 @@ private struct DefaultsAuthStorage: AuthLocalStorage {
     func remove(key: String) throws { UserDefaults.standard.removeObject(forKey: self.key(key)) }
 }
 
+/// The app the operator works for: the Mac's board, or the iPhone's. This file is compiled into
+/// both apps, so they share one account, knock and call protocol.
+@MainActor
+protocol OperatorHost: AnyObject {
+    var now: TimeInterval { get }
+    var board: Switchboard { get }
+    /// The name friends see, sent when the account is set up.
+    var myName: String { get }
+    /// Changes the board; the host plays whatever the change calls for and passes it back to `sync`.
+    func apply(_ change: (inout Switchboard) -> [BoardEvent])
+    func operatorConnected(code: String, friends: [Friend?], plan: Plan)
+    func operatorFailed(_ reason: String)
+    func operatorChangedPlan(_ plan: Plan)
+    func noteOffBoardKnock(name: String, code: String)
+    func friendBuzzed(_ jack: Int)
+    func guestBuzzed(_ name: String)
+}
+
 /// Talkie's operator: your account and code, your board on the server, who's around, and knocks.
 /// Turns what arrives from the network into board changes, and board changes into network calls.
 @MainActor
@@ -31,7 +49,7 @@ final class Operator {
     private(set) var status: Status = .connecting
     let line = Line()
 
-    private unowned let model: BoardModel
+    private unowned let model: any OperatorHost
     private let client: SupabaseClient
     private var me: UUID?
     /// Your account, once the operator has answered. Checkout tags purchases with it.
@@ -127,7 +145,7 @@ final class Operator {
 
     private static let savedIDs = "onlineFriendIDs"
 
-    init(model: BoardModel) {
+    init(model: any OperatorHost) {
         self.model = model
         client = SupabaseClient(
             supabaseURL: Backend.url,

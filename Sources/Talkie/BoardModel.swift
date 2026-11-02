@@ -792,3 +792,6 @@ enum Haptics {
         NSHapticFeedbackManager.defaultPerformer.perform(.levelChange, performanceTime: .now)
     }
 }
+
+/// The Mac board is what the operator works for.
+extension BoardModel: OperatorHost {}

@@ -1,7 +1,8 @@
 // swift-tools-version:5.9
 import PackageDescription
 
-var products: [Product] = []
+// The switchboard rules, for the iPhone app's Xcode project (ios/project.yml).
+var products: [Product] = [.library(name: "TalkieCore", targets: ["TalkieCore"])]
 var dependencies: [Package.Dependency] = []
 var targets: [Target] = [
     // Switchboard rules, cord and mic physics. No AppKit, so it builds and tests on any platform.
@@ -35,7 +36,7 @@ targets.append(
 
 let package = Package(
     name: "Talkie",
-    platforms: [.macOS(.v14)],
+    platforms: [.macOS(.v14), .iOS(.v17)],
     products: products,
     dependencies: dependencies,
     targets: targets

@@ -142,8 +142,9 @@ final class Line {
     }
 
     /// The microphone and speaker picked in Settings, if they're plugged in; otherwise the Mac's
-    /// defaults. Matched by Core Audio's device id, then by name.
+    /// defaults. Matched by Core Audio's device id, then by name. On iPhone, iOS routes the audio.
     func useChosenDevices() {
+        #if os(macOS)
         let defaults = UserDefaults.standard
         let audio = AudioManager.shared
         if let uid = defaults.string(forKey: "inputDeviceUID"), !uid.isEmpty {
@@ -158,6 +159,7 @@ final class Line {
                 audio.outputDevice = device
             }
         }
+        #endif
     }
 
     /// Hold to talk: the microphone goes live only while this is on.
