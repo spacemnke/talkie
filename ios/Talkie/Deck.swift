@@ -157,6 +157,8 @@ struct KnockCard: View {
                     }
             )
             .overlay(RoundedRectangle(cornerRadius: 18, style: .continuous).strokeBorder(Palette.ink, lineWidth: 2))
+            // One hard shadow for the whole card, not for each line of text in it.
+            .compositingGroup()
             .shadow(color: Palette.shadow, radius: 0, x: 5, y: 7)
             .padding(.horizontal, 16)
             .padding(.bottom, 190)

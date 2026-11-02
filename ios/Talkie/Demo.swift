@@ -13,6 +13,8 @@ enum Demo {
             _ = b.patch(.a, into: 1, now: now)
             _ = b.friendAnswers(1, now: now)
             b.friendTalks(1, for: 600, now: now)
+        case "add":
+            _ = b.startAdding(at: nil)
         case "empty", "welcome":
             b = Switchboard(friends: Array(repeating: nil, count: 8), myCode: "TLK-LJDF", simulated: true, plan: .free)
         default:

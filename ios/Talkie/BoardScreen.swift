@@ -278,7 +278,7 @@ private struct JackCell: View {
         guard let friend else { return "A FRIEND'S CODE" }
         if model.board.isMuted(jack) && lamp != .off { return "ON THE LINE · MUTED" }
         switch lamp {
-        case .knock: return "KNOCKING · TAP TO LET IN"
+        case .knock: return "KNOCKING"
         case .blink: return "KNOCKING…"
         case .dnd: return "DND · YOUR KNOCK WAITS"
         case .on: return "ON THE LINE"
