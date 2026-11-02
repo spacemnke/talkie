@@ -15,7 +15,7 @@ launch, gets you a permanent code, keeps your board on the server, shows who's a
 carries knocks. When someone lets you in, LiveKit carries your voices, through your voice effect if
 you picked one. A practice board with simulated friends is in the menu bar menu.
 
-Not yet: notarization.
+Signed with Developer ID and notarized by Apple (since 0.1.46).
 
 ## Free
 
@@ -56,8 +56,8 @@ swift run Talkie
 also builds them on GitHub Actions and publishes the disk image as the **Talkie (latest build)**
 release: https://github.com/spacemnke/talkie/releases/tag/latest
 
-It isn't notarized yet. The first time you open it, macOS will refuse; open **System Settings →
-Privacy & Security** and click **Open Anyway** (or run `xattr -dr com.apple.quarantine /Applications/Talkie.app`).
+It's signed with Developer ID and notarized by Apple, so it opens straight away (see **Signing and
+notarization** below).
 
 ## Updates
 
