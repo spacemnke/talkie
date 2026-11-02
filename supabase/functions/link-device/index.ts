@@ -1,6 +1,7 @@
 // Links another device to your account. Talkie on the Mac shows a link code (start_link); the
 // iPhone sends it here and gets back a one-time sign-in (a magic-link token, never emailed) for the
-// same account: same code, board and plan. Codes are good for ten minutes and once.
+// same account: same code and board. Codes are good for ten minutes and once, and an address that
+// sends ten wrong codes in an hour has to wait (use_link counts them).
 //
 // Signing in needs an email address on the account, so an account without one gets a private
 // address under link.switchtalkie.com, which never receives mail. The code is the check, so the
@@ -29,7 +30,12 @@ Deno.serve(async (req: Request) => {
   const admin = createClient(Deno.env.get("SUPABASE_URL")!, Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!, {
     auth: { persistSession: false },
   });
-  const { data: person, error } = await admin.rpc("use_link", { link_code: code });
+  // The caller's address, as the gateway saw it, for counting wrong codes.
+  const ip = (req.headers.get("x-forwarded-for") ?? "").split(",")[0].trim();
+  const { data: person, error } = await admin.rpc("use_link", { link_code: code, from_ip: ip });
+  if (error?.message?.includes("too many tries")) {
+    return json({ error: "Too many wrong codes. Try again in an hour." }, 429);
+  }
   if (error) {
     console.error(`use_link: ${error.message}`);
     return json({ error: "Couldn't check the code" }, 500);

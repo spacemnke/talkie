@@ -43,16 +43,39 @@ begin
   end loop;
 end $$;
 
--- Uses a link code: the account it opens, or null if it's wrong, used or expired. Spaces and
--- dashes don't matter. For the link-device function only.
-create function public.use_link(link_code text) returns uuid
-language sql volatile security definer set search_path = '' as $$
-  update public.link_codes set used_at = now()
-  where code = upper(regexp_replace(coalesce(link_code, ''), '[^A-Za-z0-9]', '', 'g'))
-    and used_at is null and expires_at > now()
-  returning person;
-$$;
+-- Wrong codes, by the address they came from. Ten in an hour and that address waits: on top of
+-- a trillion possible codes, guessing gets nowhere. Private, like link_codes.
+create table public.link_attempts (
+  ip text not null,
+  at timestamptz not null default now()
+);
+create index link_attempts_ip_at_idx on public.link_attempts (ip, at);
+alter table public.link_attempts enable row level security;
+revoke all on table public.link_attempts from anon, authenticated;
 
-revoke all on function public.start_link(), public.use_link(text) from public, anon, authenticated;
+-- Uses a link code: the account it opens, or null if it's wrong, used or expired. Spaces and
+-- dashes don't matter. Raises "too many tries" once an address has had ten wrong codes in an hour.
+-- For the link-device function only.
+create function public.use_link(link_code text, from_ip text) returns uuid
+language plpgsql volatile security definer set search_path = '' as $$
+declare
+  who text := coalesce(nullif(from_ip, ''), 'unknown');
+  found_person uuid;
+begin
+  if (select count(*) from public.link_attempts a where a.ip = who and a.at > now() - interval '1 hour') >= 10 then
+    raise exception 'too many tries';
+  end if;
+  update public.link_codes c set used_at = now()
+  where c.code = upper(regexp_replace(coalesce(link_code, ''), '[^A-Za-z0-9]', '', 'g'))
+    and c.used_at is null and c.expires_at > now()
+  returning c.person into found_person;
+  if found_person is null then
+    insert into public.link_attempts (ip) values (who);
+    delete from public.link_attempts where at < now() - interval '1 day';
+  end if;
+  return found_person;
+end $$;
+
+revoke all on function public.start_link(), public.use_link(text, text) from public, anon, authenticated;
 grant execute on function public.start_link() to authenticated;
-grant execute on function public.use_link(text) to service_role;
+grant execute on function public.use_link(text, text) to service_role;

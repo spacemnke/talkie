@@ -259,7 +259,9 @@ final class Operator {
 
     /// A short reason for the LCD.
     static func describe(_ error: Error) -> String {
-        if error is LinkError { return "WRONG OR EXPIRED CODE" }
+        if let link = error as? LinkError {
+            return link == .tooManyTries ? "TOO MANY TRIES · WAIT AN HOUR" : "WRONG OR EXPIRED CODE"
+        }
         let text = String(describing: error).lowercased()
         if text.contains("anonymous") { return "ANONYMOUS SIGN-INS ARE OFF" }
         if text.contains("livekit") { return "LIVEKIT ISN'T SET UP" }
@@ -761,6 +763,8 @@ final class Operator {
             linked = try await client.functions.invoke("link-device", options: FunctionInvokeOptions(body: ["code": code]))
         } catch FunctionsError.httpError(let status, _) where status == 400 || status == 404 {
             throw LinkError.wrongCode
+        } catch FunctionsError.httpError(let status, _) where status == 429 {
+            throw LinkError.tooManyTries
         }
         _ = try await client.auth.verifyOTP(tokenHash: linked.tokenHash, type: .magiclink)
         return (linked.code ?? "", linked.name ?? "")
@@ -768,6 +772,8 @@ final class Operator {
 
     enum LinkError: Error {
         case wrongCode
+        /// Ten wrong codes in an hour from here.
+        case tooManyTries
     }
 
     /// Who a code belongs to. Nil when nobody has it.
