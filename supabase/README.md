@@ -46,6 +46,6 @@ anonymous users and check the whole path: codes, boards and their privacy, knock
 them, answering, line passes, knocks and presence arriving live, and LiveKit accepting a pass.
 `node supabase/tests/groups.mjs` checks group calls: knocking someone into a call, letting someone
 into yours, the shared room and time, and the room filling up at three on Free (it holds LiveKit's
-signalling connection open to count as being in the room). `node supabase/tests/plans.mjs` checks Free and Pro: it pauses twice and prints the SQL to run
+signalling connection open to count as being in the room). `node supabase/tests/link.mjs` checks the whole board for everyone and one account on two devices (link codes, used codes, too many wrong codes). `node supabase/tests/plans.mjs` checked Free and Pro (from before Talkie was free): it pauses twice and prints the SQL to run
 (make a test user Pro, then end it). They leave anonymous test users named Ada, Bo, Cy, Pat, Fin,
 Gus, Hal, Ann, Ben and Cat behind; delete them from Authentication → Users.
